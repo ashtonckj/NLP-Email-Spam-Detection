@@ -62,6 +62,7 @@ def run_cleaning_pipeline(df: pd.DataFrame) -> pd.DataFrame:
 
 def load_split(csv_path):
     df = pd.read_csv(csv_path)
+    df[["subject", "body", "Message"]] = df[["subject", "body", "Message"]].fillna("")
     X = df[["subject", "body", "Message"]]
     y = df["Category"]
     return train_test_split(X, y, test_size=0.2, random_state=42, shuffle=True, stratify=y)
