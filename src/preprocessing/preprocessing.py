@@ -21,10 +21,10 @@ def basic_clean(df: pd.DataFrame) -> pd.DataFrame:
 def clean_text_light(text: str) -> str:
     text = str(text).lower()
     text = re.sub(r"http\S+|www\.\S+", " URL ", text)     # urls
-    text = re.sub(r"\S+@\S+", " EMAIL ", text)             # emails
-    text = re.sub(r"<.*?>", " ", text)                     # html tags
-    text = re.sub(r"\b\d+\b", " NUM ", text)                # numbers -> placeholder
-    text = re.sub(r"[^a-z\s]", " ", text)                   # remaining punctuation/symbols
+    text = re.sub(r"\S+@\S+", " EMAIL ", text)            # emails
+    text = re.sub(r"<.*?>", " ", text)                    # html tags
+    text = re.sub(r"\b\d+\b", " NUM ", text)              # numbers -> placeholder
+    text = re.sub(r"[^a-z\s]", " ", text)                 # remaining punctuation/symbols
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
