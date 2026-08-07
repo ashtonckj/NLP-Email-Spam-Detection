@@ -1,25 +1,32 @@
-import pandas as pd
-import numpy as np
-import re
 import json
 import os
 import pickle
+import sys
+from pathlib import Path
 
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import (
-    accuracy_score,
-    classification_report,
-    confusion_matrix
+import pandas as pd
+from keras.callbacks import Callback, EarlyStopping
+from keras.layers import (
+    LSTM,
+    Conv1D,
+    Dense,
+    Dropout,
+    Embedding,
+    MaxPooling1D,
 )
+from keras.models import Sequential
+from keras.preprocessing.sequence import pad_sequences
+from keras.preprocessing.text import Tokenizer
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.model_selection import train_test_split
 
-from tensorflow.keras.preprocessing.text import Tokenizer
-from tensorflow.keras.preprocessing.sequence import pad_sequences
-from tensorflow.keras.callbacks import Callback, EarlyStopping
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout, Conv1D, MaxPooling1D
+# Navigate up 2 levels from testing.py to find the project root directory
+root_dir = Path(__file__).resolve().parents[2]
+if str(root_dir) not in sys.path:
+    sys.path.append(str(root_dir))
 
-from data_cleaning import clean_text
+from src.preprocessing.preprocessing import clean_text
+
 
 class GuiLogger(Callback):
 
@@ -205,7 +212,6 @@ def train_lstm_cnn(filepath, log_callback=print, progress_callback=None):
     return result
 
 if __name__ == "__main__":
-    import os, sys
     path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
         os.path.dirname(__file__), "data", "Ceas08_Enron.csv")
     train_lstm_cnn(path)

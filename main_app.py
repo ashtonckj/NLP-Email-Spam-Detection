@@ -1,15 +1,16 @@
-import os
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-import threading
-import traceback
 import json
+import os
 import pickle
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing.sequence import pad_sequences
+import threading
+import tkinter as tk
+import traceback
+from tkinter import filedialog, messagebox, ttk
 
 # Import your external functions here
-from data_cleaning import run_cleaning_pipeline, clean_text
+from data_cleaning import clean_text, run_cleaning_pipeline
+from keras.models import load_model
+from keras.preprocessing.sequence import pad_sequences
+
 from lstm_cnn import train_lstm_cnn
 
 # Palette

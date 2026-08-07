@@ -1,6 +1,8 @@
 """Core data cleaning functions for the spam dataset."""
-import pandas as pd
 import re
+
+import pandas as pd
+
 
 def load_data(filepath):
     """Read a CSV file into a DataFrame."""
