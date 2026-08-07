@@ -8,16 +8,16 @@ root_dir = Path(__file__).resolve().parents[2]
 if str(root_dir) not in sys.path:
     sys.path.append(str(root_dir))
 
-from src.preprocessing.preprocessing import run_cleaning_pipeline
+from src.preprocessing.preprocessing import FEATURES, TARGET, run_cleaning_pipeline
 
-KEEP_COLS = ["subject", "body", "label"]
+KEEP_COLS = FEATURES + TARGET
 RAW_DIR = root_dir / "data" / "raw"
 RAW_FILES = ["CEAS_08.csv", "Enron.csv", "Nazario.csv"]
 OUT_DIR = root_dir / "data" / "processed"
 
 frames = []
 for filename in RAW_FILES:
-    df = pd.read_csv(RAW_FILES / filename)
+    df = pd.read_csv(RAW_DIR / filename)
     df = df.drop(columns="Unnamed: 0", errors="ignore")
     df = df[KEEP_COLS]
     frames.append(df)
