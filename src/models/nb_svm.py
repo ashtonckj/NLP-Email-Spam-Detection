@@ -1,7 +1,9 @@
 # Hybrid comparison: Naive Bayes, SVM, and a soft-voting NB+SVM ensemble
+import json
 import sys
 from pathlib import Path
 
+import joblib
 import pandas as pd
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
@@ -25,6 +27,7 @@ if str(root_dir) not in sys.path:
 from src.preprocessing.preprocessing import clean_text_heavy, load_split
 
 SPAM_CSV = root_dir / "data" / "processed" / "spam.csv"
+SAVE_DIR = root_dir / "src" / "saved_models"
 
 def evaluate_model(name, y_test, y_pred):
     acc = accuracy_score(y_test, y_pred)
@@ -78,3 +81,15 @@ results.append(evaluate_model("NB + SVM Hybrid", y_test, hybrid.predict(X_test_v
 summary = pd.DataFrame(results).set_index("model")
 print("\n=== Summary ===")
 print(summary.round(4))
+
+# Save the final hybrid model, the vectorizer it depends on, and metrics
+SAVE_DIR.mkdir(parents=True, exist_ok=True)
+
+joblib.dump(hybrid, SAVE_DIR / "nb_svm__hybrid.joblib")
+joblib.dump(vectorizer, SAVE_DIR / "nb_svm__tfidf_vectorizer.joblib")
+
+metrics_out = {r["model"]: {k: v for k, v in r.items() if k != "model"} for r in results}
+with open(SAVE_DIR / "nb_svm_metrics.json", "w") as f:
+    json.dump(metrics_out, f, indent=2)
+
+print(f"\nSaved hybrid model, vectorizer, and metrics to {SAVE_DIR}")
