@@ -26,11 +26,11 @@ from src.preprocessing.preprocessing import clean_text_heavy, load_split
 
 SPAM_CSV = root_dir / "data" / "processed" / "spam.csv"
 
-def evaluate_model(name, y_true, y_pred):
-    acc = accuracy_score(y_true, y_pred)
-    prec = precision_score(y_true, y_pred)
-    rec = recall_score(y_true, y_pred)
-    f1 = f1_score(y_true, y_pred)
+def evaluate_model(name, y_test, y_pred):
+    acc = accuracy_score(y_test, y_pred)
+    prec = precision_score(y_test, y_pred)
+    rec = recall_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred)
 
     print(f"\n=== {name} ===")
     print(f"Accuracy:  {acc:.4f}")
@@ -38,7 +38,7 @@ def evaluate_model(name, y_true, y_pred):
     print(f"Recall:    {rec:.4f}")
     print(f"F1 score:  {f1:.4f}")
     print("Confusion matrix:")
-    print(confusion_matrix(y_true, y_pred))
+    print(confusion_matrix(y_test, y_pred))
 
     return {"model": name, "accuracy": acc, "precision": prec, "recall": rec, "f1": f1}
 
