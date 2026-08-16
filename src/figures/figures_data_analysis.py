@@ -21,6 +21,7 @@ KEEP_COLS = FEATURES + TARGET
 df = pd.read_csv(SPAM_CSV)
 df["WordCount"] = df["Message"].str.split().str.len()
 
+
 # Spam vs ham rate by message length
 buckets = [(0, 5), (6, 15), (16, 50), (51, 100), (101, 300), (300, np.inf)]
 labels = ["0–5", "6–15", "16–50", "51–100", "101–300", "300+"]
@@ -35,19 +36,20 @@ for low, high in buckets:
     counts.append(n)
 
 x = np.arange(len(labels))
-width = 0.35
+width = 0.5
 
 fig, ax = plt.subplots(figsize=(9, 5))
-bars_spam = ax.bar(x - width/2, spam_rates, width, label="Spam", color="#be1c10", edgecolor="black", linewidth=0.6)
-bars_ham = ax.bar(x + width/2, ham_rates, width, label="Ham", color="#4aa331", edgecolor="black", linewidth=0.6)
+bars_ham = ax.bar(x, ham_rates, width, label="Ham", color="#4aa331", edgecolor="black", linewidth=0.6)
+bars_spam = ax.bar(x, spam_rates, width, bottom=ham_rates, label="Spam", color="#be1c10", edgecolor="black", linewidth=0.6)
 
-for b, r in zip(bars_spam, spam_rates):
-    ax.text(b.get_x() + b.get_width()/2, r + 1.5, f"{r:.1f}%", ha="center", fontsize=8)
-for b, r in zip(bars_ham, ham_rates):
-    ax.text(b.get_x() + b.get_width()/2, r + 1.5, f"{r:.1f}%", ha="center", fontsize=8)
+for i, (h, s) in enumerate(zip(ham_rates, spam_rates)):
+    if h > 4:
+        ax.text(i, h / 2, f"{h:.1f}%", ha="center", va="center", fontsize=8, color="white")
+    if s > 4:
+        ax.text(i, h + s / 2, f"{s:.1f}%", ha="center", va="center", fontsize=8, color="white")
 
 for i, n in enumerate(counts):
-    ax.text(i, 108, f"n={n:,}", ha="center", fontsize=8, color="gray")
+    ax.text(i, 103, f"n={n:,}", ha="center", fontsize=8, color="gray")
 
 ax.set_xticks(x)
 ax.set_xticklabels(labels)
