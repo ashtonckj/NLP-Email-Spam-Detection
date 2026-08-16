@@ -1,0 +1,70 @@
+import sys
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
+
+from src.preprocessing.preprocessing import FEATURES, TARGET
+
+RAW_DIR = ROOT_DIR / "data" / "raw"
+RAW_FILES = ["CEAS_08.csv", "Enron.csv", "Nazario.csv"]
+SPAM_CSV = ROOT_DIR / "data" / "processed" / "spam.csv"
+SAVE_DIR = ROOT_DIR / "src" / "saved_models"
+OUT_DIR = ROOT_DIR / "output"
+KEEP_COLS = FEATURES + TARGET
+
+df = pd.read_csv(SPAM_CSV)
+df["WordCount"] = df["Message"].str.split().str.len()
+
+# Spam vs ham rate by message length
+buckets = [(0, 5), (6, 15), (16, 50), (51, 100), (101, 300), (300, np.inf)]
+labels = ["0–5", "6–15", "16–50", "51–100", "101–300", "300+"]
+
+spam_rates, ham_rates, counts = [], [], []
+for low, high in buckets:
+    s = df[(df.WordCount >= low) & (df.WordCount <= high)]
+    n = len(s)
+    spam_rate = s.Category.mean() * 100 if n else 0
+    spam_rates.append(spam_rate)
+    ham_rates.append(100 - spam_rate if n else 0)
+    counts.append(n)
+
+x = np.arange(len(labels))
+width = 0.35
+
+fig, ax = plt.subplots(figsize=(9, 5))
+bars_spam = ax.bar(x - width/2, spam_rates, width, label="Spam", color="#be1c10", edgecolor="black", linewidth=0.6)
+bars_ham = ax.bar(x + width/2, ham_rates, width, label="Ham", color="#4aa331", edgecolor="black", linewidth=0.6)
+
+for b, r in zip(bars_spam, spam_rates):
+    ax.text(b.get_x() + b.get_width()/2, r + 1.5, f"{r:.1f}%", ha="center", fontsize=8)
+for b, r in zip(bars_ham, ham_rates):
+    ax.text(b.get_x() + b.get_width()/2, r + 1.5, f"{r:.1f}%", ha="center", fontsize=8)
+
+for i, n in enumerate(counts):
+    ax.text(i, 108, f"n={n:,}", ha="center", fontsize=8, color="gray")
+
+ax.set_xticks(x)
+ax.set_xticklabels(labels)
+ax.set_xlabel("Message length (words)")
+ax.set_ylabel("Proportion of messages (%)")
+ax.set_title("Spam and Ham Proportion by Message Length")
+ax.set_ylim(0, 122)
+ax.legend(loc="upper left", bbox_to_anchor=(1.0, 1.0))
+plt.tight_layout()
+plt.savefig(OUT_DIR / "spam_ham_message_length.png", dpi=200)
+
+
+fig, ax = plt.subplots(figsize=(5.5, 4.5))
+bars = ax.bar(["CEAS_08 only", "CEAS_08 + Enron"], [95.1, 76.5], color=["#c44e52", "#55a868"], edgecolor="black", linewidth=0.6)
+for b, v in zip(bars, [97.5, 76.5]):
+    ax.text(b.get_x()+b.get_width()/2, v+1.5, f"{v:.1f}%", ha="center", fontweight="bold")
+ax.set_ylabel("Short messages (≤15 words) labelled spam (%)")
+ax.set_title("Effect of merging Enron on length confound")
+ax.set_ylim(0, 110)
+plt.tight_layout(); plt.savefig("fig_merge_effect.png", dpi=200)
