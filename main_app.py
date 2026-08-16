@@ -6,11 +6,11 @@ import tkinter as tk
 import traceback
 from tkinter import filedialog, messagebox, ttk
 
-# Import your external functions here
-from data_cleaning import clean_text, run_cleaning_pipeline
 from keras.models import load_model
 from keras.preprocessing.sequence import pad_sequences
 
+# Import your external functions here
+from data_cleaning import clean_text, run_cleaning_pipeline
 from lstm_cnn import train_lstm_cnn
 
 # Palette
