@@ -69,21 +69,22 @@ def fig_merge_effect():
     df_ceas = run_cleaning_pipeline(df_ceas)
     df_ceas["WordCount"] = df_ceas["Message"].str.split().str.len()
     ceas_short = df_ceas[df_ceas["WordCount"] <= 15]
-    ceas_rate = ceas_short["Category"].mean() if len(ceas_short) else float("nan")
-    
+    ceas_rate = ceas_short["Category"].mean() * 100 if len(ceas_short) else float("nan")
+
     df_spam = pd.read_csv(SPAM_CSV)
     df_spam["WordCount"] = df_spam["Message"].str.split().str.len()
     spam_short = df_spam[df_spam["WordCount"] <= 15]
-    spam_rate = spam_short["Category"].mean() if len(spam_short) else float("nan")
-    
+    spam_rate = spam_short["Category"].mean() * 100 if len(spam_short) else float("nan")
+
+    rates = [ceas_rate, spam_rate]
     _fig, ax = plt.subplots(figsize=(5.5, 4.5))
-    bars = ax.bar(["CEAS_08 only", "CEAS_08 + Enron + Nazario"], [ceas_rate, spam_rate], color=["#c44e52", "#55a868"], edgecolor="black", linewidth=0.6)
-    for b, v in zip(bars, [97.5, 76.5]):
-        ax.text(b.get_x()+b.get_width()/2, v+1.5, f"{v:.1f}%", ha="center", fontweight="bold")
+    bars = ax.bar(["CEAS_08 only", "CEAS_08 + Enron + Nazario"], rates, color=["#c44e52", "#55a868"], edgecolor="black", linewidth=0.6)
+    for b, v in zip(bars, rates):
+        ax.text(b.get_x() + b.get_width()/2, v + 1.5, f"{v:.1f}%", ha="center", fontweight="bold")
     ax.set_ylabel("Short messages (≤15 words) labelled spam (%)")
     ax.set_title("Effect of merging Enron on length confound")
     ax.set_ylim(0, 110)
-    plt.tight_layout(); plt.savefig(OUT_DIR / "fig_merge_effect.png", dpi=200)
+    plt.tight_layout(); plt.savefig(OUT_DIR / "fig_effect_of_merging.png", dpi=200)
 
 
 if __name__ == "__main__":
