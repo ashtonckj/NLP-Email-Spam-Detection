@@ -82,7 +82,7 @@ def fig_merge_effect():
     for b, v in zip(bars, rates):
         ax.text(b.get_x() + b.get_width()/2, v + 1.5, f"{v:.1f}%", ha="center", fontweight="bold")
     ax.set_ylabel("Short messages (≤15 words) labelled spam (%)")
-    ax.set_title("Effect of merging Enron on length confound")
+    ax.set_title("Effect of merging Enron + Nazario")
     ax.set_ylim(0, 110)
     plt.tight_layout(); plt.savefig(OUT_DIR / "fig_effect_of_merging.png", dpi=200)
 
