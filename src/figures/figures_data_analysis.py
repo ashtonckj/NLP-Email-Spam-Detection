@@ -60,7 +60,7 @@ def fig_spam_ham_rate_by_length():
     ax.set_ylim(0, 122)
     ax.legend(loc="upper left", bbox_to_anchor=(1.0, 1.0))
     plt.tight_layout()
-    plt.savefig(OUT_DIR / "spam_ham_message_length.png", dpi=200)
+    plt.savefig(OUT_DIR / "fig_spam_ham_message_length.png", dpi=200)
 
 
 # Dataset merging effect on spam percentage with message length 
