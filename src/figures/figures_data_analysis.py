@@ -128,7 +128,7 @@ def fig_dataset_composition():
     for i, (k, v) in enumerate(per_file.items()):
         axes[0].text(i, v + max(per_file.values()) * 0.01, f"{v:,}", ha="center", fontsize=8)
 
-    axes[1].bar(["Ham", "Spam"], [n_ham, n_spam], color=["#55A868", "#C44E52"], edgecolor="black", linewidth=0.6)
+    axes[1].bar(["Ham", "Spam"], [n_ham, n_spam], color=["#55a868", "#c44e52"], edgecolor="black", linewidth=0.6)
     axes[1].set_title("Class Distribution (Merged Dataset)")
     axes[1].set_ylabel("Number of Emails")
     for i, v in enumerate([n_ham, n_spam]):
@@ -138,5 +138,34 @@ def fig_dataset_composition():
     plt.savefig(OUT_DIR / "fig_dataset_composition.png", dpi=300)
 
 
+VOCAB_PHRASES = ["click here", "guarantee", "limited time", "free", "invoice", "conference call", "schedule", "meeting"]
+
+# Vocabulary association with spam and ham
+def fig_vocab_association():
+    df_spam = pd.read_csv(SPAM_CSV)
+    overall_rate = df_spam["Category"].mean()
+    msg = df_spam["Message"].astype(str)
+
+    rows = []
+    for phrase in VOCAB_PHRASES:
+        mask = msg.str.contains(phrase, regex=False)
+        if mask.sum() == 0:
+            continue
+        rows.append((phrase, df_spam.loc[mask, "Category"].mean(), int(mask.sum())))
+
+    assoc = pd.DataFrame(rows, columns=["phrase", "spam_rate", "count"]).sort_values("spam_rate")
+
+    _fig, ax = plt.subplots(figsize=(7, 4.5))
+    colors = ["#c44e52" if v > overall_rate else "#55a868" for v in assoc["spam_rate"]]
+    ax.barh(assoc["phrase"], assoc["spam_rate"], color=colors)
+    ax.axvline(overall_rate, color="black", linestyle="--", linewidth=1, label=f"Overall spam rate ({overall_rate:.1%})")
+    ax.set_xlabel("Spam rate among messages containing phrase")
+    ax.set_xlim(0, 1)
+    ax.set_title("Spam Association of Selected Phrases")
+    ax.legend(loc="lower right")
+    plt.tight_layout()
+    plt.savefig(OUT_DIR / "fig_vocab_association.png")
+
+
 if __name__ == "__main__":
-    fig_class_distribution()
+    fig_vocab_association()
