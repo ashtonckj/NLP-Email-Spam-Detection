@@ -331,7 +331,7 @@ class SpamMe(tk.Tk):
         if os.path.exists(saved_dir):
             
             # 3. Load the tokenizer you saved during training to convert the text to numbers
-            with open(f"{saved_dir}/tokenizer.pickle", 'rb') as handle:
+            with open(f"{saved_dir}/tokenizer.pkl", 'rb') as handle:
                 tokenizer = pickle.load(handle)
                 
             seq = tokenizer.texts_to_sequences([cleaned_text])

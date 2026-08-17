@@ -222,7 +222,7 @@ class SpamMe(tk.Tk):
 
         # --- Keras models (e.g. LSTM+CNN) ---
         if keras_files:
-            tokenizer_path = os.path.join(saved_dir, "tokenizer.pickle")
+            tokenizer_path = os.path.join(saved_dir, "tokenizer.pkl")
             if os.path.exists(tokenizer_path):
                 with open(tokenizer_path, "rb") as handle:
                     tokenizer = pickle.load(handle)

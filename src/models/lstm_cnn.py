@@ -114,7 +114,7 @@ print(confusion_matrix(y_test, pred))
 SAVE_DIR.mkdir(parents=True, exist_ok=True)
 model.save(SAVE_DIR / "lstm_cnn_model.keras")
 
-with open(SAVE_DIR / "tokenizer.pickle", "wb") as handle:
+with open(SAVE_DIR / "tokenizer.pkl", "wb") as handle:
     pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 with open(SAVE_DIR / "lstm_cnn_metrics.json", "w") as f:
