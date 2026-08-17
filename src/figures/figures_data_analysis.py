@@ -138,7 +138,7 @@ def fig_dataset_composition():
     plt.savefig(OUT_DIR / "fig_dataset_composition.png", dpi=300)
 
 
-VOCAB_PHRASES = ["click here", "guarantee", "limited time", "free", "invoice", "conference call", "schedule", "meeting"]
+VOCAB_PHRASES = ["click here", "guarantee", "limited time", "free", "invoice", "schedule", "meeting"]
 
 # Vocabulary association with spam and ham
 def fig_vocab_association():
@@ -165,6 +165,7 @@ def fig_vocab_association():
     ax.legend(loc="lower right")
     plt.tight_layout()
     plt.savefig(OUT_DIR / "fig_vocab_association.png")
+    print(assoc)
 
 
 if __name__ == "__main__":
