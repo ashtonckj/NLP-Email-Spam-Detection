@@ -9,14 +9,12 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
-from src.preprocessing.preprocessing import FEATURES, TARGET, run_cleaning_pipeline
+from src.preprocessing.preprocessing import run_cleaning_pipeline
 
 RAW_DIR = ROOT_DIR / "data" / "raw"
 RAW_FILES = ["CEAS_08.csv", "Enron.csv", "Nazario.csv"]
 SPAM_CSV = ROOT_DIR / "data" / "processed" / "spam.csv"
-SAVE_DIR = ROOT_DIR / "src" / "saved_models"
 OUT_DIR = ROOT_DIR / "output"
-KEEP_COLS = FEATURES + TARGET
 
 
 # Spam vs ham rate by message length
@@ -84,8 +82,61 @@ def fig_merge_effect():
     ax.set_ylabel("Short messages (≤15 words) labelled spam (%)")
     ax.set_title("Effect of merging Enron + Nazario")
     ax.set_ylim(0, 110)
-    plt.tight_layout(); plt.savefig(OUT_DIR / "fig_effect_of_merging.png", dpi=200)
+    plt.tight_layout()
+    plt.savefig(OUT_DIR / "fig_effect_of_merging.png", dpi=200)
+
+
+# Spam vs ham counts in spam.csv
+def fig_class_distribution():
+    df = pd.read_csv(SPAM_CSV)
+    counts = df["Category"].value_counts().sort_index()
+    labels = {0: "Ham", 1: "Spam"}
+    total = counts.sum()
+    
+    _fig, ax = plt.subplots(figsize=(5, 4.5))
+    bars = ax.bar([labels[i] for i in counts.index], counts.values, color=["#55a868", "#c44e52"])
+    ax.set_ylim(0, counts.values.max() * 1.15)
+    for b in bars:
+        h = b.get_height()
+        ax.annotate(f"{h:,}\n({h / total:.1%})", (b.get_x() + b.get_width() / 2, h), ha="center", va="bottom")
+    ax.set_ylabel("Number of messages")
+    ax.set_title("Class Distribution (Merged Dataset)")
+    plt.tight_layout()
+    plt.savefig(OUT_DIR / "fig_spam_ham_counts.png")
+
+
+def fig_dataset_composition():
+    per_file = {}
+    for filename in RAW_FILES:
+        df = pd.read_csv(RAW_DIR / filename)
+        df = df.drop(columns="Unnamed: 0", errors="ignore")
+        df = run_cleaning_pipeline(df)
+        per_file[filename] = len(df)
+
+    df_spam = pd.read_csv(SPAM_CSV)
+
+    n_total = len(df_spam)
+    n_spam = int((df_spam["Category"] == 1).sum())
+    n_ham = n_total - n_spam
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+    axes[0].bar(per_file.keys(), per_file.values(), color="#4C72B0", edgecolor="black", linewidth=0.6)
+    axes[0].set_title("Records per Source File")
+    axes[0].set_ylabel("Number of Emails")
+    axes[0].tick_params(axis="x", rotation=20)
+    for i, (k, v) in enumerate(per_file.items()):
+        axes[0].text(i, v + max(per_file.values()) * 0.01, f"{v:,}", ha="center", fontsize=8)
+
+    axes[1].bar(["Ham", "Spam"], [n_ham, n_spam], color=["#55A868", "#C44E52"], edgecolor="black", linewidth=0.6)
+    axes[1].set_title("Class Distribution (Merged Dataset)")
+    axes[1].set_ylabel("Number of Emails")
+    for i, v in enumerate([n_ham, n_spam]):
+        axes[1].text(i, v + max(n_ham, n_spam) * 0.01, f"{v:,}", ha="center", fontsize=8)
+
+    fig.tight_layout()
+    plt.savefig(OUT_DIR / "fig_dataset_composition.png", dpi=300)
 
 
 if __name__ == "__main__":
-    fig_merge_effect()
+    fig_class_distribution()
