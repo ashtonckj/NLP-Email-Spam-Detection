@@ -209,8 +209,8 @@ class SpamMe(tk.Tk):
             return
 
         files = os.listdir(saved_dir)
-        keras_files = sorted(f for f in files if f.endswith("_model.keras"))
-        hybrid_files = sorted(f for f in files if f.endswith("__hybrid.joblib"))
+        keras_files = sorted(f for f in files if f.endswith(".keras"))
+        hybrid_files = sorted(f for f in files if f.endswith(".joblib"))
 
         if not keras_files and not hybrid_files:
             self.result_tree.insert("", "end", values=("No trained models found", "-", "-", "-"))
@@ -241,7 +241,7 @@ class SpamMe(tk.Tk):
                     except Exception as exc:
                         self.result_tree.insert("", "end", values=(base_name.upper(), "N/A", "N/A", f"Error: {exc}"))
             else:
-                self.result_tree.insert("", "end", values=("tokenizer.pickle missing", "-", "-", "-"))
+                self.result_tree.insert("", "end", values=("tokenizer.pkl missing", "-", "-", "-"))
 
         # --- Joblib hybrid models (e.g. NB+LR+RF, NB+SVM) ---
         if hybrid_files:
