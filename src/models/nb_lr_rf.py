@@ -23,6 +23,7 @@ root_dir = Path(__file__).resolve().parents[2]
 if str(root_dir) not in sys.path:
     sys.path.append(str(root_dir))
 
+from src.figures.figures_data_analysis import fig_confusion_matrix
 from src.preprocessing.preprocessing import clean_text_heavy, load_split
 
 SPAM_CSV = root_dir / "data" / "processed" / "spam.csv"
@@ -76,15 +77,14 @@ results.append(evaluate_model("Random Forest", y_test, rf.predict(X_test_vec)))
 # --- Hybrid: NB + LR + RF soft-voting ensemble ---
 hybrid = VotingClassifier(estimators=[("nb", nb), ("lr", lr), ("rf", rf)], voting="soft")
 hybrid.fit(X_train_vec, y_train)
-results.append(evaluate_model("NB + LR + RF Hybrid", y_test, hybrid.predict(X_test_vec)))
+y_pred = hybrid.predict(X_test_vec)
+results.append(evaluate_model("NB + LR + RF Hybrid", y_test, y_pred))
+fig_confusion_matrix(y_test, y_pred, "nb_lr_rf")
 
 summary = pd.DataFrame(results).set_index("model")
 print("\n=== Summary ===")
 print(summary.round(4))
-
-# Save the final hybrid model, the vectorizer it depends on, and metrics
 SAVE_DIR.mkdir(parents=True, exist_ok=True)
-
 joblib.dump(hybrid, SAVE_DIR / "nb_lr_rf__hybrid.joblib")
 joblib.dump(vectorizer, SAVE_DIR / "nb_lr_rf__tfidf_vectorizer.joblib")
 

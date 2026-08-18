@@ -4,6 +4,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.metrics import confusion_matrix
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
@@ -105,6 +106,7 @@ def fig_class_distribution():
     plt.savefig(OUT_DIR / "fig_spam_ham_counts.png")
 
 
+# Dataset Composition
 def fig_dataset_composition():
     per_file = {}
     for filename in RAW_FILES:
@@ -166,6 +168,31 @@ def fig_vocab_association():
     plt.tight_layout()
     plt.savefig(OUT_DIR / "fig_vocab_association.png")
     print(assoc)
+
+
+# Confusion Matrics
+def fig_confusion_matrix(y_test, y_pred, model):
+    cm = confusion_matrix(y_test, y_pred)
+    _fig, ax = plt.subplots(figsize=(4, 3.5))
+    im = ax.imshow(cm, cmap="Blues")
+
+    threshold = cm.max() * 0.6  # cells darker than this get white text
+
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            color = "white" if cm[i, j] > threshold else "black"
+            ax.text(j, i, str(cm[i, j]), ha="center", va="center", color=color)
+
+    ax.set_xticks([1, 0])
+    ax.set_yticks([1, 0])
+    ax.set_xticklabels(["Spam", "Ham"])
+    ax.set_yticklabels(["Spam", "Ham"])
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    ax.set_title("Confusion Matrix - NB-SVM")
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    plt.tight_layout()
+    plt.savefig(OUT_DIR / f"fig_confusion_{model}.png", dpi=300)
 
 
 if __name__ == "__main__":

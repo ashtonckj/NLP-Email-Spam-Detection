@@ -29,6 +29,7 @@ root_dir = Path(__file__).resolve().parents[2]
 if str(root_dir) not in sys.path:
     sys.path.append(str(root_dir))
 
+from src.figures.figures_data_analysis import fig_confusion_matrix
 from src.preprocessing.preprocessing import load_split
 
 SPAM_CSV = root_dir / "data" / "processed" / "spam.csv"
@@ -103,12 +104,13 @@ model.fit(
 )
 
 pred_prob = model.predict(X_test_pad)
-pred = (pred_prob > 0.5).astype(int)
+y_pred = (pred_prob > 0.5).astype(int)
+result = evaluate_model("LSTM + CNN", y_test, y_pred)
+fig_confusion_matrix(y_test, y_pred, "lstm_cnn")
 
-result = evaluate_model("LSTM + CNN", y_test, pred)
 print("\nDetailed classification report:")
-print(classification_report(y_test, pred))
-print(confusion_matrix(y_test, pred))
+print(classification_report(y_test, y_pred))
+print(confusion_matrix(y_test, y_pred))
 
 # Save model, tokenizer, and metrics
 SAVE_DIR.mkdir(parents=True, exist_ok=True)

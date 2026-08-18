@@ -24,6 +24,7 @@ root_dir = Path(__file__).resolve().parents[2]
 if str(root_dir) not in sys.path:
     sys.path.append(str(root_dir))
 
+from src.figures.figures_data_analysis import fig_confusion_matrix
 from src.preprocessing.preprocessing import clean_text_heavy, load_split
 
 SPAM_CSV = root_dir / "data" / "processed" / "spam.csv"
@@ -96,19 +97,14 @@ X_test_nb = sp.csr_matrix(X_test_vec.dot(r_sparse))
 # --- Linear SVM trained on the NB-reweighted features ---
 svm = LinearSVC()
 svm.fit(X_train_nb, y_train)
-
-results = [
-    evaluate_model("NB-SVM", y_test, svm.predict(X_test_nb))
-]
+y_pred = svm.predict(X_test_nb)
+results = [evaluate_model("NB-SVM", y_test, y_pred)]
+fig_confusion_matrix(y_test, y_pred, "nb_svm")
 
 summary = pd.DataFrame(results).set_index("model")
 print("\n=== Summary ===")
 print(summary.round(4))
-
-# Save the fitted vectorizer, the NB log-count ratio vector, and the SVM
-# classifier as one bundle so they can be reloaded together at inference time.
 SAVE_DIR.mkdir(parents=True, exist_ok=True)
-
 joblib.dump(
     {"vectorizer": vectorizer, "nb_log_count_ratio": r, "svm": svm},
     SAVE_DIR / "nb_svm.joblib",
