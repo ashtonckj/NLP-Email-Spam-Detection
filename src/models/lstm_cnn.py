@@ -1,5 +1,4 @@
-# Train LSTM+CNN hybrid model on the shared spam.csv dataset
-import json
+# Hybrid Model: LSTM + CNN
 import pickle
 import sys
 from pathlib import Path
@@ -16,41 +15,18 @@ from keras.layers import (
     TextVectorization,
 )
 from keras.models import Sequential
-from sklearn.metrics import (
-    accuracy_score,
-    classification_report,
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
-)
+from sklearn.metrics import classification_report
 
 root_dir = Path(__file__).resolve().parents[2]
 if str(root_dir) not in sys.path:
     sys.path.append(str(root_dir))
 
 from src.figures.figures_data_analysis import fig_confusion_matrix
+from src.models.evaluation import evaluate_model, export_model_metrics
 from src.preprocessing.preprocessing import load_split
 
 SPAM_CSV = root_dir / "data" / "processed" / "spam.csv"
 SAVE_DIR = root_dir / "src" / "saved_models"
-
-
-def evaluate_model(name, y_test, y_pred):
-    acc = accuracy_score(y_test, y_pred)
-    prec = precision_score(y_test, y_pred)
-    rec = recall_score(y_test, y_pred)
-    f1 = f1_score(y_test, y_pred)
-
-    print(f"\n=== {name} ===")
-    print(f"Accuracy:  {acc:.4f}")
-    print(f"Precision: {prec:.4f}")
-    print(f"Recall:    {rec:.4f}")
-    print(f"F1 score:  {f1:.4f}")
-    print("Confusion matrix:")
-    print(confusion_matrix(y_test, y_pred))
-
-    return {"model": name, "accuracy": acc, "precision": prec, "recall": rec, "f1": f1}
 
 
 # Same split every model uses -- Message column already light-cleaned in the shared pipeline
@@ -105,19 +81,17 @@ model.fit(
 
 pred_prob = model.predict(X_test_pad)
 y_pred = (pred_prob > 0.5).astype(int)
-result = evaluate_model("LSTM + CNN", y_test, y_pred)
-fig_confusion_matrix(y_test, y_pred, "lstm_cnn")
+result = evaluate_model("LSTM + CNN Hybrid", y_test, y_pred)
+fig_confusion_matrix("lstm_cnn", y_test, y_pred)
 
 print("\nDetailed classification report:")
 print(classification_report(y_test, y_pred))
-print(confusion_matrix(y_test, y_pred))
 
-# Save model, tokenizer, and metrics
 SAVE_DIR.mkdir(parents=True, exist_ok=True)
 model.save(SAVE_DIR / "lstm_cnn_model.keras")
 
-with open(SAVE_DIR / "tokenizer.pkl", "wb") as handle:
+with open(SAVE_DIR / "lstm_cnn_tokenizer.pkl", "wb") as handle:
     pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-with open(SAVE_DIR / "lstm_cnn_metrics.json", "w") as f:
-    json.dump({"accuracy": f"{result['accuracy'] * 100:.2f}%"}, f)
+export_model_metrics(result, SAVE_DIR / "lstm_cnn_metrics.json")
+print(f"\nSaved LSTM-CNN model and metrics to {SAVE_DIR}")

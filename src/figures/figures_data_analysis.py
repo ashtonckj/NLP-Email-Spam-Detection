@@ -140,9 +140,8 @@ def fig_dataset_composition():
     plt.savefig(OUT_DIR / "fig_dataset_composition.png", dpi=300)
 
 
-VOCAB_PHRASES = ["click here", "guarantee", "limited time", "free", "invoice", "schedule", "meeting"]
-
 # Vocabulary association with spam and ham
+VOCAB_PHRASES = ["click here", "guarantee", "limited time", "free", "invoice", "schedule", "meeting"]
 def fig_vocab_association():
     df_spam = pd.read_csv(SPAM_CSV)
     overall_rate = df_spam["Category"].mean()
@@ -171,7 +170,7 @@ def fig_vocab_association():
 
 
 # Confusion Matrics
-def fig_confusion_matrix(y_test, y_pred, model):
+def fig_confusion_matrix(name, y_test, y_pred):
     cm = confusion_matrix(y_test, y_pred)
     _fig, ax = plt.subplots(figsize=(4, 3.5))
     im = ax.imshow(cm, cmap="Blues")
@@ -189,10 +188,10 @@ def fig_confusion_matrix(y_test, y_pred, model):
     ax.set_yticklabels(["Spam", "Ham"])
     ax.set_xlabel("Predicted")
     ax.set_ylabel("Actual")
-    ax.set_title("Confusion Matrix - NB-SVM")
+    ax.set_title(f"Confusion Matrix - {name.upper()}")
     plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     plt.tight_layout()
-    plt.savefig(OUT_DIR / f"fig_confusion_{model}.png", dpi=300)
+    plt.savefig(OUT_DIR / f"fig_confusion_{name}.png", dpi=300)
 
 
 if __name__ == "__main__":
