@@ -1,5 +1,4 @@
 import json
-import os
 import pickle
 import sys
 import tkinter as tk
@@ -8,14 +7,48 @@ from tkinter import messagebox, ttk
 
 import joblib
 import numpy as np
+import scipy.sparse as sp
 from keras.models import load_model
 from keras.preprocessing.sequence import pad_sequences
 
-ROOT_DIR = Path(__file__).resolve().parent()
+ROOT_DIR = Path(__file__).resolve().parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
 from src.preprocessing.preprocessing import clean_text_heavy, clean_text_light
+
+SAVED_MODELS_DIR = ROOT_DIR / "src" / "saved_models"
+
+# Hardcoded registry of trained models -- add/remove an entry here whenever a
+# model is added, renamed, or retired. "kind" controls which _predict_* method
+# is used to score a given model type:
+#   - "keras"          -> lstm_cnn.py:  .keras model + its own tokenizer.pkl
+#   - "sklearn_proba"  -> nb_lr_rf.py:  joblib bundle, classifier exposes predict_proba
+#   - "nb_svm"         -> nb_svm.py:    joblib bundle, LinearSVC (no predict_proba),
+#                          needs the NB log-count-ratio reweighting before scoring
+MODEL_REGISTRY = [
+    {
+        "name": "LSTM + CNN Hybrid",
+        "kind": "keras",
+        "model_file": "lstm_cnn_model.keras",
+        "tokenizer_file": "lstm_cnn_tokenizer.pkl",
+        "metrics_file": "lstm_cnn_metrics.json",
+    },
+    {
+        "name": "NB + LR + RF Hybrid",
+        "kind": "sklearn_proba",
+        "model_file": "nb_lr_rf_model.joblib",
+        "metrics_file": "nb_lr_rf_metrics.json",
+        "bundle_model_key": "hybrid",
+        "bundle_vectorizer_key": "vectorizer",
+    },
+    {
+        "name": "NB + SVM Hybrid",
+        "kind": "nb_svm",
+        "model_file": "nb_svm_model.joblib",
+        "metrics_file": "nb_svm_metrics.json",
+    },
+]
 
 # Palette
 BG      = "#1e2229"
@@ -52,7 +85,7 @@ class SpamMe(tk.Tk):
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
         self.tab_testing = ttk.Frame(self.notebook, style="Bg.TFrame")
-        self.notebook.add(self.tab_testing, text="3. Model Testing")
+        self.notebook.add(self.tab_testing, text="Model Testing")
         self._build_testing_tab()
 
     def _setup_style(self):
@@ -119,6 +152,12 @@ class SpamMe(tk.Tk):
         self.test_input.pack(fill="both", expand=True, pady=(0, 10))
         self.test_input.bind("<Control-a>", self._select_all_text)
         self.test_input.bind("<Control-A>", self._select_all_text)
+        # Tk's Text widget uses Emacs-style bindings by default on every platform --
+        # that's *why* Ctrl-A needed to be overridden above (it's normally bound to
+        # "move to line start"). Word-wise deletion, however, isn't bound to anything
+        # by default, so Ctrl+Backspace / Ctrl+Delete need to be added explicitly too.
+        self.test_input.bind("<Control-BackSpace>", self._delete_word_before)
+        self.test_input.bind("<Control-Delete>", self._delete_word_after)
 
         self.test_btn = ttk.Button(input_frame, text="Analyze Email", style="Accent.TButton", command=self._run_test)
         self.test_btn.pack(side="right")
@@ -150,6 +189,18 @@ class SpamMe(tk.Tk):
         widget.mark_set("insert", "end-1c")
         widget.see("insert")
         return "break"  # stop Tk's default "move to line start" binding from also running
+
+    @staticmethod
+    def _delete_word_before(event):
+        widget = event.widget
+        widget.delete("insert -1c wordstart", "insert")
+        return "break"
+
+    @staticmethod
+    def _delete_word_after(event):
+        widget = event.widget
+        widget.delete("insert", "insert wordend")
+        return "break"
 
     def _get_nltk_assets(self):
         """Lazily load stopwords + stemmer, needed by the TF-IDF (nb_lr_rf, nb_svm) models."""
@@ -185,77 +236,94 @@ class SpamMe(tk.Tk):
     def _display_test_result(self, email_text):
         self.result_tree.delete(*self.result_tree.get_children())
 
-        saved_dir = "src/saved_models"
-        if not os.path.isdir(saved_dir):
+        if not SAVED_MODELS_DIR.is_dir():
             self.result_tree.insert("", "end", values=("No saved_models folder found", "-", "-", "-"))
-            self.test_btn.configure(state="normal")
-            return
-
-        files = os.listdir(saved_dir)
-        keras_files = sorted(f for f in files if f.endswith(".keras"))
-        hybrid_files = sorted(f for f in files if f.endswith(".joblib"))
-
-        if not keras_files and not hybrid_files:
-            self.result_tree.insert("", "end", values=("No trained models found", "-", "-", "-"))
             self.test_btn.configure(state="normal")
             return
 
         # Same light clean used to build the training data (see preprocessing.py)
         light_clean = clean_text_light(email_text)
+        heavy_clean = None  # only computed if a TF-IDF-based model is actually found
 
-        # --- Keras models (e.g. LSTM+CNN) ---
-        if keras_files:
-            tokenizer_path = os.path.join(saved_dir, "tokenizer.pkl")
-            if os.path.exists(tokenizer_path):
-                with open(tokenizer_path, "rb") as handle:
-                    tokenizer = pickle.load(handle)
+        any_model_found = False
 
-                # NOTE: must be wrapped in a list -- TextVectorization expects a
-                # batch of strings, not a single scalar string.
-                seq = tokenizer(np.array([light_clean])).numpy()
-                padded_text = pad_sequences(seq, maxlen=200, padding="post")
+        for entry in MODEL_REGISTRY:
+            model_path = SAVED_MODELS_DIR / entry["model_file"]
+            if not model_path.exists():
+                continue  # model just hasn't been trained/saved yet -- skip quietly
+            any_model_found = True
 
-                for file in keras_files:
-                    base_name = file.replace("_model.keras", "")
-                    try:
-                        model = load_model(os.path.join(saved_dir, file))
-                        pred_score = float(model.predict(padded_text, verbose=0)[0][0])
-                        self._insert_prediction(saved_dir, base_name, "keras", pred_score)
-                    except Exception as exc:
-                        self.result_tree.insert("", "end", values=(base_name.upper(), "N/A", "N/A", f"Error: {exc}"))
-            else:
-                self.result_tree.insert("", "end", values=("tokenizer.pkl missing", "-", "-", "-"))
-
-        # --- Joblib hybrid models (e.g. NB+LR+RF, NB+SVM) ---
-        if hybrid_files:
             try:
-                stop_words, stemmer = self._get_nltk_assets()
-                heavy_clean = clean_text_heavy(light_clean, stemmer, stop_words)
+                if entry["kind"] == "keras":
+                    pred_score = self._predict_keras(entry, model_path, light_clean)
+                else:
+                    if heavy_clean is None:
+                        stop_words, stemmer = self._get_nltk_assets()
+                        heavy_clean = clean_text_heavy(light_clean, stemmer, stop_words)
 
-                for file in hybrid_files:
-                    base_name = file.replace("__hybrid.joblib", "")
-                    vec_path = os.path.join(saved_dir, f"{base_name}__tfidf_vectorizer.joblib")
-                    if not os.path.exists(vec_path):
-                        self.result_tree.insert("", "end", values=(base_name.upper(), "N/A", "N/A", "Vectorizer missing"))
-                        continue
-                    try:
-                        hybrid_model = joblib.load(os.path.join(saved_dir, file))
-                        vectorizer = joblib.load(vec_path)
-                        vec = vectorizer.transform([heavy_clean])
+                    if entry["kind"] == "sklearn_proba":
+                        pred_score = self._predict_sklearn_proba(entry, model_path, heavy_clean)
+                    elif entry["kind"] == "nb_svm":
+                        pred_score = self._predict_nb_svm(model_path, heavy_clean)
+                    else:
+                        raise ValueError(f"Unknown model kind: {entry['kind']!r}")
 
-                        classes = list(hybrid_model.classes_)
-                        spam_idx = classes.index(1) if 1 in classes else 1
-                        pred_score = float(hybrid_model.predict_proba(vec)[0][spam_idx])
-
-                        self._insert_prediction(saved_dir, base_name, "joblib", pred_score)
-                    except Exception as exc:
-                        self.result_tree.insert("", "end", values=(base_name.upper(), "N/A", "N/A", f"Error: {exc}"))
+                self._insert_prediction(entry, pred_score)
             except Exception as exc:
-                messagebox.showerror("NLTK Error", f"Could not load stopwords/stemmer: {exc}")
+                self.result_tree.insert("", "end", values=(entry["name"], "N/A", "N/A", f"Error: {exc}"))
+
+        if not any_model_found:
+            self.result_tree.insert("", "end", values=("No trained models found", "-", "-", "-"))
 
         self.test_btn.configure(state="normal")
 
-    def _insert_prediction(self, saved_dir, base_name, model_type, pred_score):
+    @staticmethod
+    def _predict_keras(entry, model_path, light_clean):
+        tokenizer_path = SAVED_MODELS_DIR / entry["tokenizer_file"]
+        if not tokenizer_path.exists():
+            raise FileNotFoundError(f"{entry['tokenizer_file']} missing")
+
+        with open(tokenizer_path, "rb") as handle:
+            tokenizer = pickle.load(handle)
+
+        # NOTE: must be wrapped in a list -- TextVectorization expects a
+        # batch of strings, not a single scalar string.
+        seq = tokenizer(np.array([light_clean])).numpy()
+        padded_text = pad_sequences(seq, maxlen=200, padding="post")
+
+        model = load_model(model_path)
+        return float(model.predict(padded_text, verbose=0)[0][0])
+
+    @staticmethod
+    def _predict_sklearn_proba(entry, model_path, heavy_clean):
+        bundle = joblib.load(model_path)
+        clf = bundle[entry["bundle_model_key"]]
+        vectorizer = bundle[entry["bundle_vectorizer_key"]]
+
+        vec = vectorizer.transform([heavy_clean])
+        classes = list(clf.classes_)
+        spam_idx = classes.index(1) if 1 in classes else 1
+        return float(clf.predict_proba(vec)[0][spam_idx])
+
+    @staticmethod
+    def _predict_nb_svm(model_path, heavy_clean):
+        bundle = joblib.load(model_path)
+        vectorizer = bundle["vectorizer"]
+        r = bundle["nb_log_count_ratio"]
+        svm = bundle["svm"]
+
+        vec = vectorizer.transform([heavy_clean])
+        r_sparse = sp.diags(r)
+        vec_nb = sp.csr_matrix(vec.dot(r_sparse))
+
+        # LinearSVC has no predict_proba -- squash the raw decision margin
+        # through a sigmoid so it can be shown as a 0-1 confidence score.
+        # This is NOT a calibrated probability, just a monotonic stand-in
+        # for display purposes (same >0.5 = spam threshold as the others).
+        margin = svm.decision_function(vec_nb)[0]
+        return float(1.0 / (1.0 + np.exp(-margin)))
+
+    def _insert_prediction(self, entry, pred_score):
         if pred_score > 0.5:
             prediction_label = "🚨 SPAM"
             confidence = pred_score * 100
@@ -263,31 +331,28 @@ class SpamMe(tk.Tk):
             prediction_label = "✅ HAM"
             confidence = (1.0 - pred_score) * 100
 
-        display_accuracy = self._get_model_accuracy(saved_dir, base_name, model_type)
-        display_name = base_name.upper().replace("_", " ")
+        display_accuracy = self._get_model_accuracy(entry)
 
         self.result_tree.insert(
             "", "end",
-            values=(display_name, display_accuracy, f"{confidence:.2f}%", prediction_label),
+            values=(entry["name"], display_accuracy, f"{confidence:.2f}%", prediction_label),
         )
 
     @staticmethod
-    def _get_model_accuracy(saved_dir, base_name, model_type):
-        json_path = os.path.join(saved_dir, f"{base_name}_metrics.json")
-        if not os.path.exists(json_path):
+    def _get_model_accuracy(entry):
+        metrics_path = SAVED_MODELS_DIR / entry["metrics_file"]
+        if not metrics_path.exists():
             return "N/A"
 
-        with open(json_path, "r") as f:
+        with open(metrics_path, "r") as f:
             metrics_data = json.load(f)
 
-        if model_type == "keras":
-            # lstm_cnn_metrics.json -> {"accuracy": "97.50%"}
-            acc = metrics_data.get("accuracy", "N/A")
-        else:
-            # nb_lr_rf_metrics.json / nb_svm_metrics.json ->
-            # {"Naive Bayes": {...}, "NB + LR + RF Hybrid": {"accuracy": 0.975, ...}, ...}
-            hybrid_entry = next((v for k, v in metrics_data.items() if "hybrid" in k.lower()), None)
-            acc = hybrid_entry.get("accuracy", "N/A") if hybrid_entry else "N/A"
+        # Every metrics file now has the same shape (see evaluation.export_model_metrics):
+        # {"Some Model Name": {"accuracy": ..., "precision": ..., ...}, ...}
+        # Pull whichever entry is the final hybrid/ensemble result rather than
+        # an intermediate sub-model (e.g. skip "Naive Bayes" inside nb_lr_rf_metrics.json).
+        hybrid_entry = next((v for k, v in metrics_data.items() if "hybrid" in k.lower()), None)
+        acc = hybrid_entry.get("accuracy", "N/A") if hybrid_entry else "N/A"
 
         if isinstance(acc, (int, float)):
             return f"{acc * 100:.2f}%"
