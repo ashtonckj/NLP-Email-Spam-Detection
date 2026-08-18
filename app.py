@@ -11,10 +11,7 @@ import numpy as np
 from keras.models import load_model
 from keras.preprocessing.sequence import pad_sequences
 
-# --- Make sure "src.preprocessing.preprocessing" is importable regardless of
-#     where this script is launched from (assumes app.py lives at the project root,
-#     same level as the "src" folder) ---
-ROOT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = Path(__file__).resolve().parent()
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
@@ -29,9 +26,7 @@ ACCENT  = "#5b8def"
 OK      = "#4cc38a"
 ERR     = "#e5645e"
 
-DEFAULT_DATA = os.path.join(os.path.dirname(__file__), "data", "Ceas08_Enron.csv")
 STEP_DELAY_MS = 800
-
 
 class SpamMe(tk.Tk):
     def __init__(self):
@@ -93,9 +88,7 @@ class SpamMe(tk.Tk):
         s.map("Treeview", background=[("selected", ACCENT)], foreground=[("selected", "#ffffff")])
         s.configure("Treeview.Heading", background=CARD, foreground=MUTED, font=("Segoe UI Semibold", 9), borderwidth=0)
 
-    # ==========================================
-    # TAB 3: MODEL TESTING (PREDICTION)
-    # ==========================================
+
     def _build_testing_tab(self):
         head = ttk.Frame(self.tab_testing, style="Bg.TFrame", padding=(20, 18, 20, 14))
         head.pack(fill="x")
@@ -108,10 +101,6 @@ class SpamMe(tk.Tk):
 
         ttk.Label(input_frame, text="EMAIL CONTENT", style="Card.TLabel").pack(anchor="w", pady=(0, 5))
 
-        # --- FIX 1: cursor was invisible because insertbackground was never set,
-        #     so Tk defaulted to a black caret on a near-black background. ---
-        # --- FIX 2: selection colors added so Ctrl+A / click-drag selection is
-        #     actually visible against the dark theme. ---
         self.test_input = tk.Text(
             input_frame,
             height=8,
@@ -128,12 +117,6 @@ class SpamMe(tk.Tk):
             wrap="word",
         )
         self.test_input.pack(fill="both", expand=True, pady=(0, 10))
-
-        # --- FIX 3: Tk's Text widget binds Ctrl+A to "move cursor to start of
-        #     line" (an emacs-style default), not "select all". That's why
-        #     nothing was actually selected, and Delete/Backspace had nothing
-        #     to remove. Rebind it to a real select-all and swallow the event
-        #     (return "break") so the old behavior doesn't also fire. ---
         self.test_input.bind("<Control-a>", self._select_all_text)
         self.test_input.bind("<Control-A>", self._select_all_text)
 
