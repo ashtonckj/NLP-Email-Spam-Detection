@@ -4,16 +4,16 @@ from pathlib import Path
 import pandas as pd
 
 # Navigate up 2 levels from testing.py to find the project root directory
-root_dir = Path(__file__).resolve().parents[2]
-if str(root_dir) not in sys.path:
-    sys.path.append(str(root_dir))
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
 
 from src.preprocessing.preprocessing import FEATURES, TARGET, run_cleaning_pipeline
 
 KEEP_COLS = FEATURES + TARGET
-RAW_DIR = root_dir / "data" / "raw"
+RAW_DIR = ROOT_DIR / "data" / "raw"
 RAW_FILES = ["CEAS_08.csv", "Enron.csv", "Nazario.csv"]
-OUT_DIR = root_dir / "data" / "processed"
+OUT_DIR = ROOT_DIR / "data" / "processed"
 
 frames = []
 for filename in RAW_FILES:

@@ -11,16 +11,16 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import MultinomialNB
 
-root_dir = Path(__file__).resolve().parents[2]
-if str(root_dir) not in sys.path:
-    sys.path.append(str(root_dir))
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
 
 from src.figures.figures_data_analysis import fig_confusion_matrix
 from src.models.evaluation import evaluate_model, export_model_metrics
 from src.preprocessing.preprocessing import clean_text_heavy, load_split
 
-SPAM_CSV = root_dir / "data" / "processed" / "spam.csv"
-SAVE_DIR = root_dir / "src" / "saved_models"
+SPAM_CSV = ROOT_DIR / "data" / "processed" / "spam.csv"
+SAVE_DIR = ROOT_DIR / "src" / "saved_models"
 
 ps = PorterStemmer()
 stop_words = set(stopwords.words("english"))
