@@ -176,7 +176,7 @@ def plot_sweep(param, trials, best_value):
     plt.close(fig)
 
 
-def main():
+def tune_lstm_cnn():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     tr_text, val_text, y_tr, y_val = get_train_validation_split()
@@ -247,4 +247,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    tune_lstm_cnn()
