@@ -22,7 +22,14 @@ if str(ROOT_DIR) not in sys.path:
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-from src.preprocessing.preprocessing import FEATURES, TARGET, basic_clean, clean_text_heavy, clean_text_light, combine_text
+from src.preprocessing.preprocessing import (
+    FEATURES,
+    TARGET,
+    basic_clean,
+    clean_text_heavy,
+    clean_text_light,
+    combine_text,
+)
 
 SAVED_MODELS_DIR = ROOT_DIR / "src" / "saved_models"
 
