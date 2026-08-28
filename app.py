@@ -1,11 +1,9 @@
 import json
-import math
 import pickle
 import random
 import re
 import sys
 import tkinter as tk
-from collections import Counter
 from pathlib import Path
 from tkinter import messagebox, ttk
 
@@ -67,9 +65,7 @@ MODEL_REGISTRY = [
     },
 ]
 
-KEYWORD_BANK_SIZE = 40        # how many top words to keep
-KEYWORD_MIN_DOC_COUNT = 30    # a word needs to appear in at least this many emails to count -- filters out rare/noisy words 
-KEYWORD_PLACEHOLDER_TOKENS = {"num", "url", "email"}  # clean_text_light's placeholders, not real words 
+HIGHLIGHT_MODEL_FILES = ("nb_svm_model.joblib", "nb_lr_rf_model.joblib")  # linear models pooled for per-word spam scoring
 
 # Palette
 BG      = "#1e2229"
@@ -108,8 +104,10 @@ class SpamMe(tk.Tk):
         self._test_samples = None
         self._raw_split = None
 
-        # Lazily-computed, data-driven spam keyword bank (see _get_spam_keyword_bank)
-        self._spam_keywords = None
+        # Lazily-loaded list of linear models (NB-SVM, NB, LR), reused purely
+        # to score per-word spam contribution for whatever email is currently
+        # in the box (see _get_highlight_bundle / _get_word_contributions)
+        self._highlight_bundle = None
 
         self._setup_style()
         self.notebook = ttk.Notebook(self)
@@ -291,60 +289,88 @@ class SpamMe(tk.Tk):
         self._test_samples = list(spam_sample) + list(ham_sample)
         return self._test_samples
 
-    def _get_spam_keyword_bank(self):
-        if self._spam_keywords is not None:
-            return self._spam_keywords
+    def _get_highlight_bundle(self):
+        """Lazily load every linear model we have, purely to score per-word
+        spam contribution for whatever email is in the box. Nothing new is
+        exported to disk -- these are the same joblib bundles already used
+        for real predictions elsewhere in the app:
 
-        split = self._load_raw_split()
-        if not split:
-            self._spam_keywords = []
-            return self._spam_keywords
-        X_train, _, y_train, _ = split
+          - NB-SVM's LinearSVC, over (TF-IDF x NB log-count-ratio) features
+          - the NB+LR+RF bundle's NB and LR sub-models, pulled straight out
+            of the saved VotingClassifier's own fitted clones (no retraining)
 
-        # Light-clean each message the same way the models see it (lowercase,
-        # punctuation/URLs/numbers stripped) so word counts are consistent.
-        cleaned_messages = X_train["Message"].apply(clean_text_light)
+        Random Forest is skipped -- it has no per-word linear weight to read.
+        """
+        if self._highlight_bundle is not None:
+            return self._highlight_bundle
 
-        # Collapse near-identical, mass-mailed campaigns (the same email
-        # resent hundreds of times with only a timestamp changed, for
-        # example) down to a single occurrence. Without this, one heavily
-        # repeated template can dominate the word stats with proper nouns
-        # specific to that one email rather than genuine spam signal.
-        train_df = pd.DataFrame({"cleaned": cleaned_messages, "label": y_train.values})
-        train_df = train_df.drop_duplicates(subset="cleaned")
+        sources = []
 
-        spam_doc_freq = Counter()
-        ham_doc_freq = Counter()
-        n_spam = 0
-        n_ham = 0
+        nb_svm_path = SAVED_MODELS_DIR / "nb_svm_model.joblib"
+        if nb_svm_path.exists():
+            bundle = joblib.load(nb_svm_path)
+            sources.append(("svm", bundle["vectorizer"], bundle["nb_log_count_ratio"], bundle["svm"]))
 
-        for text, label in zip(train_df["cleaned"], train_df["label"]):
-            words = set(text.split()) - KEYWORD_PLACEHOLDER_TOKENS
-            if label == 1:
-                n_spam += 1
-                spam_doc_freq.update(words)
+        nb_lr_rf_path = SAVED_MODELS_DIR / "nb_lr_rf_model.joblib"
+        if nb_lr_rf_path.exists():
+            bundle = joblib.load(nb_lr_rf_path)
+            hybrid, vectorizer = bundle["hybrid"], bundle["vectorizer"]
+            nb = hybrid.named_estimators_.get("nb")
+            lr = hybrid.named_estimators_.get("lr")
+            if nb is not None:
+                sources.append(("nb", vectorizer, None, nb))
+            if lr is not None:
+                sources.append(("lr", vectorizer, None, lr))
+
+        self._highlight_bundle = sources
+        return self._highlight_bundle
+
+    def _get_word_contributions(self, heavy_clean_text):
+        """Return {word: contribution} pooled across every available linear
+        model, for THIS email only. Each model's own term is exact math off
+        its real learned weights -- summing them just means a word that
+        several models independently lean on adds up, so a spam email with
+        multiple recognizable signals highlights more of them, while a
+        message none of the models find spammy nets out near/below zero.
+        """
+        sources = self._get_highlight_bundle()
+        if not sources:
+            return None
+
+        combined = {}
+        for kind, vectorizer, r, model in sources:
+            vec = sp.csr_matrix(vectorizer.transform([heavy_clean_text]))
+            feature_names = vectorizer.get_feature_names_out()
+
+            if kind == "svm":
+                reweighted = vec.multiply(r)  # same NB log-count-ratio reweighting used at training time
+                contributions = np.asarray(reweighted.todense()).ravel() * model.coef_.ravel()
+            elif kind == "lr":
+                contributions = np.asarray(vec.multiply(model.coef_.ravel()).todense()).ravel()
+            elif kind == "nb":
+                # log P(word | spam) - log P(word | ham), scaled by this email's TF-IDF weight
+                log_ratio = model.feature_log_prob_[1] - model.feature_log_prob_[0]
+                contributions = np.asarray(vec.multiply(log_ratio).todense()).ravel()
             else:
-                n_ham += 1
-                ham_doc_freq.update(words)
+                continue
 
-        scored_words = []
-        all_words = set(spam_doc_freq) | set(ham_doc_freq)
-        for word in all_words:
-            spam_count = spam_doc_freq.get(word, 0)
-            ham_count = ham_doc_freq.get(word, 0)
+            for i in vec.nonzero()[1]:
+                word = feature_names[i]
+                combined[word] = combined.get(word, 0.0) + contributions[i]
 
-            if len(word) < 3 or (spam_count + ham_count) < KEYWORD_MIN_DOC_COUNT:
-                continue  # too short or too rare to be a reliable signal
+        return combined
 
-            # +1 smoothing so words with zero count in one class don't blow up
-            spam_rate = (spam_count + 1) / (n_spam + 2)
-            ham_rate = (ham_count + 1) / (n_ham + 2)
-            log_odds = math.log(spam_rate / ham_rate)
-            scored_words.append((word, log_odds))
-
-        scored_words.sort(key=lambda pair: pair[1], reverse=True)
-        self._spam_keywords = [word for word, _ in scored_words[:KEYWORD_BANK_SIZE]]
-        return self._spam_keywords
+    @staticmethod
+    def _word_to_feature(word, stemmer, stop_words):
+        """Map a raw word from the textbox to the stemmed form the TF-IDF
+        vocabulary uses -- the same rule clean_text_heavy applies (drop
+        words length <=2, drop stopwords, then stem), just one word at a time
+        so a highlighted span in the textbox can be traced back to a feature.
+        """
+        w = word.lower()
+        if len(w) <= 2 or w in stop_words:
+            return None
+        return stemmer.stem(w)
 
     def _randomize_email(self):
         samples = self._get_test_samples()
@@ -369,34 +395,40 @@ class SpamMe(tk.Tk):
         widget = self.test_input
         widget.tag_remove("kw_highlight", "1.0", "end")
 
-        keywords = self._get_spam_keyword_bank()
-        if not keywords:
+        stop_words, stemmer = self._get_nltk_assets()
+        light_clean = clean_text_light(email_text)
+        heavy_clean = clean_text_heavy(light_clean, stemmer, stop_words)
+
+        word_scores = self._get_word_contributions(heavy_clean)
+        if word_scores is None:
             self.keyword_label.configure(
-                text="Spam keyword bank unavailable -- couldn't find the raw dataset CSVs."
+                text="No trained classical models found -- can't compute trigger words."
             )
             return
 
         found = []
-        for keyword in keywords:
-            pattern = r"\b" + re.escape(keyword) + r"\b"
-            for match in re.finditer(pattern, email_text, flags=re.IGNORECASE):
-                start_index = f"1.0+{match.start()}c"
-                end_index = f"1.0+{match.end()}c"
-                widget.tag_add("kw_highlight", start_index, end_index)
-                found.append(match.group())
+        for match in re.finditer(r"[a-zA-Z]+", email_text):
+            token = match.group()
+            feature = self._word_to_feature(token, stemmer, stop_words)
+            score = word_scores.get(feature) if feature else None
+            if score is not None and score > 0:
+                widget.tag_add("kw_highlight", f"1.0+{match.start()}c", f"1.0+{match.end()}c")
+                found.append((token, score))
 
         if found:
-            # De-duplicate while preserving first-seen order and original casing
+            # Strongest contributors to THIS email's spam score first;
+            # de-dupe by word while keeping first-seen casing.
+            found.sort(key=lambda pair: pair[1], reverse=True)
             seen = set()
-            unique_found = []
-            for word in found:
-                key = word.lower()
+            ordered = []
+            for token, _ in found:
+                key = token.lower()
                 if key not in seen:
                     seen.add(key)
-                    unique_found.append(word)
-            self.keyword_label.configure(text="⚠ " + ", ".join(unique_found))
+                    ordered.append(token)
+            self.keyword_label.configure(text="⚠ " + ", ".join(ordered))
         else:
-            self.keyword_label.configure(text="No common spam trigger words detected in this email.")
+            self.keyword_label.configure(text="No words in this email pushed it toward spam.")
 
     @staticmethod
     def _select_all_text(event):
