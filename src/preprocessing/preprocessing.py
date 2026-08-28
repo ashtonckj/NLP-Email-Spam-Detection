@@ -56,7 +56,10 @@ def run_cleaning_pipeline(df: pd.DataFrame) -> pd.DataFrame:
     for col in FEATURES:
         df[col] = df[col].apply(clean_text_light)
     df = combine_text(df)
+    df["Message"] = df["Message"].replace(r"^\s*$", pd.NA, regex=True)
+    df = df.dropna(subset=["Message"])
     validate_labels(df)
+    print(df.info())
     return df[["subject", "body", "Message", "Category"]]
 
 
