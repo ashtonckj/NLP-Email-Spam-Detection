@@ -1,0 +1,35 @@
+{
+  "selection_metric": "f1",
+  "method": "one-factor-at-a-time",
+  "baseline": {
+    "vocab_size": 10000,
+    "max_length": 200,
+    "embedding_dim": 128,
+    "conv_filters": 64,
+    "kernel_size": 5,
+    "pool_size": 4,
+    "lstm_units": 128,
+    "lstm_dropout": 0.2,
+    "recurrent_dropout": 0.0,
+    "dense_units": 64,
+    "dense_dropout": 0.5,
+    "optimizer": "adam",
+    "batch_size": 32
+  },
+  "best_params": {
+    "vocab_size": 10000,
+    "max_length": 150,
+    "embedding_dim": 64,
+    "conv_filters": 256,
+    "kernel_size": 5,
+    "pool_size": 4,
+    "lstm_units": 64,
+    "lstm_dropout": 0.0,
+    "recurrent_dropout": 0.0,
+    "dense_units": 32,
+    "dense_dropout": 0.5,
+    "optimizer": "adam",
+    "batch_size": 64
+  },
+  "final_validation_score": 0.9854709418837675
+}
