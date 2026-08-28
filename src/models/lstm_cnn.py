@@ -36,7 +36,7 @@ X_test_text = X_test["Message"]
 
 # Tokenization
 vocab_size = 10000
-max_length = 200
+max_length = 150
 tokenizer = TextVectorization(
     max_tokens=vocab_size,
     output_mode="int",
@@ -50,17 +50,17 @@ X_test_pad = tokenizer(np.array(X_test_text)).numpy()
 model = Sequential()
 
 # 1. Embedding layer: converts integer sequences into dense word vectors
-model.add(Embedding(input_dim=vocab_size, output_dim=128))
+model.add(Embedding(input_dim=vocab_size, output_dim=64))
 
 # 2. CNN layers: extract local features (e.g. spammy n-grams or keyword combos)
-model.add(Conv1D(filters=64, kernel_size=5, activation="relu"))
+model.add(Conv1D(filters=256, kernel_size=5, activation="relu"))
 model.add(MaxPooling1D(pool_size=4))
 
 # 3. LSTM layer: learns long-term sequential dependencies from the CNN's feature maps
-model.add(LSTM(128, dropout=0.2, recurrent_dropout=0.2))
+model.add(LSTM(64, dropout=0.0, recurrent_dropout=0.0))
 
 # 4. Dense/classification layers
-model.add(Dense(64, activation="relu"))
+model.add(Dense(32, activation="relu"))
 model.add(Dropout(0.5))
 model.add(Dense(1, activation="sigmoid"))
 
@@ -74,7 +74,7 @@ model.fit(
     X_train_pad,
     y_train,
     epochs=10,
-    batch_size=32,
+    batch_size=64,
     validation_split=0.2,
     callbacks=[early_stop],
 )
