@@ -1,11 +1,7 @@
 import json
-import math
 import pickle
-import random
-import re
 import sys
 import tkinter as tk
-from collections import Counter
 from pathlib import Path
 from tkinter import messagebox, ttk
 
@@ -19,15 +15,9 @@ ROOT_DIR = Path(__file__).resolve().parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
-import pandas as pd
-from sklearn.model_selection import train_test_split
-
-from src.preprocessing.preprocessing import FEATURES, TARGET, basic_clean, clean_text_heavy, clean_text_light, combine_text
+from src.preprocessing.preprocessing import clean_text_heavy, clean_text_light
 
 SAVED_MODELS_DIR = ROOT_DIR / "src" / "saved_models"
-
-RAW_DATA_DIR = ROOT_DIR / "data" / "raw"
-RAW_DATA_FILES = ["CEAS_08.csv", "Enron.csv", "Nazario.csv"]
 
 # Hardcoded registry of trained models -- add/remove an entry here whenever a
 # model is added, renamed, or retired. "kind" controls which _predict_* method
@@ -60,10 +50,6 @@ MODEL_REGISTRY = [
     },
 ]
 
-KEYWORD_BANK_SIZE = 40        # how many top words to keep
-KEYWORD_MIN_DOC_COUNT = 30    # a word needs to appear in at least this many emails to count -- filters out rare/noisy words 
-KEYWORD_PLACEHOLDER_TOKENS = {"num", "url", "email"}  # clean_text_light's placeholders, not real words 
-
 # Palette
 BG      = "#1e2229"
 CARD    = "#272c35"
@@ -95,15 +81,6 @@ class SpamMe(tk.Tk):
         self._stop_words = None
         self._stemmer = None
 
-        # Lazily-loaded pool of real test-set emails (see _get_test_samples),
-        # used by the "Randomize Email" button. Loaded on first click so the
-        # app still opens instantly.
-        self._test_samples = None
-        self._raw_split = None
-
-        # Lazily-computed, data-driven spam keyword bank (see _get_spam_keyword_bank)
-        self._spam_keywords = None
-
         self._setup_style()
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
@@ -127,7 +104,6 @@ class SpamMe(tk.Tk):
         s.configure("Title.TLabel", background=BG, foreground=FG, font=("Segoe UI Semibold", 18))
         s.configure("Sub.TLabel", background=BG, foreground=MUTED, font=("Segoe UI", 10))
         s.configure("Card.TLabel", background=CARD, foreground=MUTED, font=("Segoe UI Semibold", 9))
-        s.configure("KeywordValue.TLabel", background=CARD, foreground=FG, font=("Segoe UI", 10), wraplength=760)
 
         s.configure("TEntry", fieldbackground="#1a1e24", foreground=FG, bordercolor="#3a4150", insertcolor=FG, padding=6)
         s.configure("TCombobox", fieldbackground="#1a1e24", background="#1a1e24", foreground=FG, arrowcolor=MUTED, padding=5)
@@ -183,20 +159,7 @@ class SpamMe(tk.Tk):
         self.test_input.bind("<Control-BackSpace>", self._delete_word_before)
         self.test_input.bind("<Control-Delete>", self._delete_word_after)
 
-        # Tag used to visually highlight detected spam-trigger words/phrases
-        self.test_input.tag_configure(
-            "kw_highlight", background="#f5c451", foreground="#1a1e24", font=("Segoe UI", 11, "bold")
-        )
-
-        btn_row = ttk.Frame(input_frame, style="Card.TFrame")
-        btn_row.pack(fill="x")
-
-        self.randomize_btn = ttk.Button(
-            btn_row, text="🎲 Randomize Email", style="Ghost.TButton", command=self._randomize_email
-        )
-        self.randomize_btn.pack(side="left")
-
-        self.test_btn = ttk.Button(btn_row, text="Analyze Email", style="Accent.TButton", command=self._run_test)
+        self.test_btn = ttk.Button(input_frame, text="Analyze Email", style="Accent.TButton", command=self._run_test)
         self.test_btn.pack(side="right")
 
         # Result Area (Multi-Model Table)
@@ -218,178 +181,6 @@ class SpamMe(tk.Tk):
         self.result_tree.column("Accuracy", width=120, anchor="center")
         self.result_tree.column("Confidence", width=120, anchor="center")
         self.result_tree.column("Prediction", width=150, anchor="center")
-
-        # Flagged spam-trigger words (heuristic, independent of the ML models)
-        ttk.Label(self.result_frame, text="SPAM TRIGGER WORDS", style="Card.TLabel").pack(anchor="w", pady=(14, 5))
-        self.keyword_label = ttk.Label(
-            self.result_frame,
-            text="Click \"Analyze Email\" to scan for spam trigger words.",
-            style="KeywordValue.TLabel",
-        )
-        self.keyword_label.pack(anchor="w")
-
-    def _load_raw_split(self):
-        if self._raw_split is not None:
-            return self._raw_split
-
-        missing = [f for f in RAW_DATA_FILES if not (RAW_DATA_DIR / f).exists()]
-        if missing:
-            self._raw_split = ()
-            return self._raw_split
-
-        frames = []
-        for filename in RAW_DATA_FILES:
-            df = pd.read_csv(RAW_DATA_DIR / filename)
-            df = df.drop(columns="Unnamed: 0", errors="ignore")
-            df = df[FEATURES + TARGET]
-            frames.append(df)
-        combined = pd.concat(frames, ignore_index=True)
-
-        combined = basic_clean(combined)          # same dedup/NaN handling as training
-        combined = combine_text(combined)         # raw Message + Category (no clean_text_light)
-
-        X = combined[["subject", "body", "Message"]]
-        y = combined["Category"]
-        self._raw_split = train_test_split(
-            X, y, test_size=0.2, random_state=42, shuffle=True, stratify=y
-        )
-        return self._raw_split
-
-    def _get_test_samples(self):
-        if self._test_samples is not None:
-            return self._test_samples
-
-        split = self._load_raw_split()
-        if not split:
-            self._test_samples = []
-            return self._test_samples
-        _, X_test, _, y_test = split
-
-        test_df = X_test.copy()
-        test_df["Category"] = y_test
-
-        # Skip near-empty or very long emails so the demo text stays readable
-        word_count = test_df["Message"].str.split().str.len()
-        test_df = test_df[(word_count >= 8) & (word_count <= 80)]
-
-        # Take a fixed-size, evenly mixed sample so both spam and ham show up,
-        # with a fixed seed so the *pool* is reproducible (the actual pick in
-        # _randomize_email below is still random each click).
-        spam_pool = test_df.loc[test_df["Category"] == 1, "Message"]
-        ham_pool = test_df.loc[test_df["Category"] == 0, "Message"]
-
-        spam_sample = spam_pool.sample(min(len(spam_pool), 25), random_state=42)
-        ham_sample = ham_pool.sample(min(len(ham_pool), 25), random_state=42)
-
-        self._test_samples = list(spam_sample) + list(ham_sample)
-        return self._test_samples
-
-    def _get_spam_keyword_bank(self):
-        if self._spam_keywords is not None:
-            return self._spam_keywords
-
-        split = self._load_raw_split()
-        if not split:
-            self._spam_keywords = []
-            return self._spam_keywords
-        X_train, _, y_train, _ = split
-
-        # Light-clean each message the same way the models see it (lowercase,
-        # punctuation/URLs/numbers stripped) so word counts are consistent.
-        cleaned_messages = X_train["Message"].apply(clean_text_light)
-
-        # Collapse near-identical, mass-mailed campaigns (the same email
-        # resent hundreds of times with only a timestamp changed, for
-        # example) down to a single occurrence. Without this, one heavily
-        # repeated template can dominate the word stats with proper nouns
-        # specific to that one email rather than genuine spam signal.
-        train_df = pd.DataFrame({"cleaned": cleaned_messages, "label": y_train.values})
-        train_df = train_df.drop_duplicates(subset="cleaned")
-
-        spam_doc_freq = Counter()
-        ham_doc_freq = Counter()
-        n_spam = 0
-        n_ham = 0
-
-        for text, label in zip(train_df["cleaned"], train_df["label"]):
-            words = set(text.split()) - KEYWORD_PLACEHOLDER_TOKENS
-            if label == 1:
-                n_spam += 1
-                spam_doc_freq.update(words)
-            else:
-                n_ham += 1
-                ham_doc_freq.update(words)
-
-        scored_words = []
-        all_words = set(spam_doc_freq) | set(ham_doc_freq)
-        for word in all_words:
-            spam_count = spam_doc_freq.get(word, 0)
-            ham_count = ham_doc_freq.get(word, 0)
-
-            if len(word) < 3 or (spam_count + ham_count) < KEYWORD_MIN_DOC_COUNT:
-                continue  # too short or too rare to be a reliable signal
-
-            # +1 smoothing so words with zero count in one class don't blow up
-            spam_rate = (spam_count + 1) / (n_spam + 2)
-            ham_rate = (ham_count + 1) / (n_ham + 2)
-            log_odds = math.log(spam_rate / ham_rate)
-            scored_words.append((word, log_odds))
-
-        scored_words.sort(key=lambda pair: pair[1], reverse=True)
-        self._spam_keywords = [word for word, _ in scored_words[:KEYWORD_BANK_SIZE]]
-        return self._spam_keywords
-
-    def _randomize_email(self):
-        samples = self._get_test_samples()
-        if not samples:
-            missing_list = "\n".join(f"  - {f}" for f in RAW_DATA_FILES)
-            messagebox.showwarning(
-                "Raw Test Data Not Found",
-                f"Couldn't find the raw dataset CSVs in:\n{RAW_DATA_DIR}\n\n"
-                f"Expected files:\n{missing_list}",
-            )
-            return
-
-        sample = random.choice(samples)
-        self.test_input.delete("1.0", "end")
-        self.test_input.insert("1.0", sample)
-        self.test_input.tag_remove("kw_highlight", "1.0", "end")
-
-        self.result_tree.delete(*self.result_tree.get_children())
-        self.keyword_label.configure(text="Click \"Analyze Email\" to scan for spam trigger words.")
-
-    def _highlight_keywords(self, email_text):
-        widget = self.test_input
-        widget.tag_remove("kw_highlight", "1.0", "end")
-
-        keywords = self._get_spam_keyword_bank()
-        if not keywords:
-            self.keyword_label.configure(
-                text="Spam keyword bank unavailable -- couldn't find the raw dataset CSVs."
-            )
-            return
-
-        found = []
-        for keyword in keywords:
-            pattern = r"\b" + re.escape(keyword) + r"\b"
-            for match in re.finditer(pattern, email_text, flags=re.IGNORECASE):
-                start_index = f"1.0+{match.start()}c"
-                end_index = f"1.0+{match.end()}c"
-                widget.tag_add("kw_highlight", start_index, end_index)
-                found.append(match.group())
-
-        if found:
-            # De-duplicate while preserving first-seen order and original casing
-            seen = set()
-            unique_found = []
-            for word in found:
-                key = word.lower()
-                if key not in seen:
-                    seen.add(key)
-                    unique_found.append(word)
-            self.keyword_label.configure(text="⚠ " + ", ".join(unique_found))
-        else:
-            self.keyword_label.configure(text="No common spam trigger words detected in this email.")
 
     @staticmethod
     def _select_all_text(event):
@@ -434,8 +225,6 @@ class SpamMe(tk.Tk):
 
         self.test_btn.configure(state="disabled")
 
-        self._highlight_keywords(email_text)
-
         # Clear previous results
         self.result_tree.delete(*self.result_tree.get_children())
         self.result_tree.insert("", "end", values=("Scanning models...", "-", "-", "-"))
@@ -461,7 +250,7 @@ class SpamMe(tk.Tk):
         for entry in MODEL_REGISTRY:
             model_path = SAVED_MODELS_DIR / entry["model_file"]
             if not model_path.exists():
-                continue
+                continue  # model just hasn't been trained/saved yet -- skip quietly
             any_model_found = True
 
             try:
