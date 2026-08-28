@@ -45,45 +45,50 @@ def nb_log_count_ratio(X_train_vec, y_train, alpha=1.0):
     return r
 
 
-ps = PorterStemmer()
-stop_words = set(stopwords.words("english"))
+def run_nb_svm():
+    ps = PorterStemmer()
+    stop_words = set(stopwords.words("english"))
 
-# Same train/test split every model uses
-X_train, X_test, y_train, y_test = load_split(SPAM_CSV)
+    # Same train/test split every model uses
+    X_train, X_test, y_train, y_test = load_split(SPAM_CSV)
 
-# Heavy clean (stopwords removed, stemmed) -- tfidf branch only
-X_train_text = X_train["Message"].apply(lambda t: clean_text_heavy(t, ps, stop_words))
-X_test_text = X_test["Message"].apply(lambda t: clean_text_heavy(t, ps, stop_words))
+    # Heavy clean (stopwords removed, stemmed) -- tfidf branch only
+    X_train_text = X_train["Message"].apply(lambda t: clean_text_heavy(t, ps, stop_words))
+    X_test_text = X_test["Message"].apply(lambda t: clean_text_heavy(t, ps, stop_words))
 
-# Fit tfidf on train only, reuse the same vocab on test
-vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
-X_train_vec = vectorizer.fit_transform(X_train_text)
-X_test_vec = vectorizer.transform(X_test_text)
+    # Fit tfidf on train only, reuse the same vocab on test
+    vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 1))
+    X_train_vec = vectorizer.fit_transform(X_train_text)
+    X_test_vec = vectorizer.transform(X_test_text)
 
-# --- Naive Bayes log-count ratio, fit on train only ---
-r = nb_log_count_ratio(X_train_vec, y_train)
-r_sparse = sp.diags(r)
+    # --- Naive Bayes log-count ratio, fit on train only ---
+    r = nb_log_count_ratio(X_train_vec, y_train)
+    r_sparse = sp.diags(r)
 
-# Reweight every TF-IDF feature column by its NB log-count ratio
-X_train_nb = sp.csr_matrix(X_train_vec.dot(r_sparse))
-X_test_nb = sp.csr_matrix(X_test_vec.dot(r_sparse))
+    # Reweight every TF-IDF feature column by its NB log-count ratio
+    X_train_nb = sp.csr_matrix(X_train_vec.dot(r_sparse))
+    X_test_nb = sp.csr_matrix(X_test_vec.dot(r_sparse))
 
-# --- Linear SVM trained on the NB-reweighted features ---
-svm = LinearSVC()
-svm.fit(X_train_nb, y_train)
-y_pred = svm.predict(X_test_nb)
-results = [evaluate_model("NB-SVM Hybrid", y_test, y_pred)]
-fig_confusion_matrix("nb_svm", y_test, y_pred)
+    # --- Linear SVM trained on the NB-reweighted features ---
+    svm = LinearSVC(C=1.0)
+    svm.fit(X_train_nb, y_train)
+    y_pred = svm.predict(X_test_nb)
+    results = [evaluate_model("NB-SVM Hybrid", y_test, y_pred)]
+    fig_confusion_matrix("nb_svm", y_test, y_pred)
 
-summary = pd.DataFrame(results).set_index("model")
-print("\n=== Summary ===")
-print(summary.round(4))
+    summary = pd.DataFrame(results).set_index("model")
+    print("\n=== Summary ===")
+    print(summary.round(4))
 
-SAVE_DIR.mkdir(parents=True, exist_ok=True)
-joblib.dump(
-    {"vectorizer": vectorizer, "nb_log_count_ratio": r, "svm": svm},
-    SAVE_DIR / "nb_svm_model.joblib",
-)
+    SAVE_DIR.mkdir(parents=True, exist_ok=True)
+    joblib.dump(
+        {"vectorizer": vectorizer, "nb_log_count_ratio": r, "svm": svm},
+        SAVE_DIR / "nb_svm_model.joblib",
+    )
 
-export_model_metrics(results, SAVE_DIR / "nb_svm_metrics.json")
-print(f"\nSaved NB-SVM bundle and metrics to {SAVE_DIR}")
+    export_model_metrics(results, SAVE_DIR / "nb_svm_metrics.json")
+    print(f"\nSaved NB-SVM bundle and metrics to {SAVE_DIR}")
+
+
+if __name__ == "__main__":
+    run_nb_svm()

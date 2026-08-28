@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,7 +19,7 @@ if str(ROOT_DIR) not in sys.path:
 from src.preprocessing.preprocessing import load_split
 
 SPAM_CSV = ROOT_DIR / "data" / "processed" / "spam.csv"
-OUT_DIR = ROOT_DIR / "output" / "tuning" / "lstm_cnn"
+OUT_DIR = ROOT_DIR / "output" / "lstm_cnn_tuning"
 
 SELECTION_METRIC = "f1"
 
@@ -96,8 +97,7 @@ def vectorise(tr_text, val_text, vocab_size, max_length):
     return _vec_cache[key]
 
 def build_model(cfg):
-    from keras.layers import (LSTM, Conv1D, Dense, Dropout, Embedding,
-                              MaxPooling1D)
+    from keras.layers import LSTM, Conv1D, Dense, Dropout, Embedding, MaxPooling1D
     from keras.models import Sequential
 
     model = Sequential()
@@ -176,7 +176,7 @@ def plot_sweep(param, trials, best_value):
     plt.close(fig)
 
 
-def main():
+def tune_lstm_cnn():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     tr_text, val_text, y_tr, y_val = get_train_validation_split()
@@ -247,4 +247,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    tune_lstm_cnn()
