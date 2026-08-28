@@ -194,85 +194,9 @@ def fig_confusion_matrix(name, y_test, y_pred):
     plt.savefig(OUT_DIR / f"fig_confusion_{name}.png", dpi=300)
 
 
-from src.preprocessing.preprocessing import (
-    FEATURES,
-    TARGET,
-    basic_clean,
-)
-
-RAW_DIR = ROOT_DIR / "data" / "raw"
-RAW_FILES = ["CEAS_08.csv", "Enron.csv", "Nazario.csv"] 
-SPAM_CSV = ROOT_DIR / "data" / "processed" / "spam.csv"
-SAVE_DIR = ROOT_DIR / "src" / "saved_models"
-OUT_DIR = ROOT_DIR / "output"
-KEEP_COLS = FEATURES + TARGET
-
-OUT_DIR.mkdir(parents=True, exist_ok=True)
-
-all_stats = {}
-
-# =============================================================================
-# Section 3.2.2 / 3.2.3 -- dataset description + characteristics
-# =============================================================================
-print("Computing dataset description (Section 3.2.2 / 3.2.3)...")
-
-per_file = {}
-frames = []
-for filename in RAW_FILES:
-    df = pd.read_csv(RAW_DIR / filename)
-    df = df.drop(columns="Unnamed: 0", errors="ignore")
-    df = df[KEEP_COLS]
-    df = basic_clean(df)
-    per_file[filename] = len(df)
-    frames.append(df)
-
-merged_raw = pd.concat(frames, ignore_index=True)
-merged_raw = merged_raw.drop_duplicates().reset_index(drop=True)
-
-n_total = len(merged_raw)
-n_spam = int((merged_raw["label"] == 1).sum())
-n_ham = n_total - n_spam
-
-all_stats["dataset_description"] = {
-    "records_per_source_file": per_file,
-    "total_records_after_merge_and_dedup": n_total,
-    "spam_count": n_spam,
-    "spam_pct": round(100 * n_spam / n_total, 2),
-    "ham_count": n_ham,
-    "ham_pct": round(100 * n_ham / n_total, 2),
-}
-
-fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-
-axes[0].bar(per_file.keys(), per_file.values(), color="#4C72B0", edgecolor="black", linewidth=0.6)
-axes[0].set_title("Records per Source File")
-axes[0].set_ylabel("Number of Emails")
-axes[0].tick_params(axis="x", rotation=20)
-for i, (k, v) in enumerate(per_file.items()):
-    axes[0].text(i, v + max(per_file.values()) * 0.01, f"{v:,}", ha="center", fontsize=8)
-
-axes[1].bar(["Ham", "Spam"], [n_ham, n_spam], color=["#55A868", "#C44E52"], edgecolor="black", linewidth=0.6)
-axes[1].set_title("Class Distribution (Merged Dataset)")
-axes[1].set_ylabel("Number of Emails")
-for i, v in enumerate([n_ham, n_spam]):
-    axes[1].text(i, v + max(n_ham, n_spam) * 0.01, f"{v:,}", ha="center", fontsize=8)
-
-fig.tight_layout()
-plt.savefig(OUT_DIR / "fig_dataset_composition.png", dpi=300)
-plt.close(fig)
-
-processed_df = pd.read_csv(SPAM_CSV)
-lengths = processed_df["Message"].apply(lambda t: len(str(t).split()))
-spam_lengths = lengths[processed_df["Category"] == 1]
-ham_lengths = lengths[processed_df["Category"] == 0]
-
-all_stats["message_length_stats"] = {
-    "ham_mean_words": round(ham_lengths.mean(), 1),
-    "ham_median_words": int(ham_lengths.median()),
-    "spam_mean_words": round(spam_lengths.mean(), 1),
-    "spam_median_words": int(spam_lengths.median()),
-}
-
-
 if __name__ == "__main__":
+    fig_spam_ham_rate_by_length()
+    fig_merge_effect()
+    fig_class_distribution()
+    fig_dataset_composition()
     fig_vocab_association()
