@@ -30,7 +30,7 @@ X_train, X_test, y_train, y_test = load_split(SPAM_CSV)
 
 X_train_text = X_train["Message"].apply(lambda t: clean_text_heavy(t, ps, stop_words))
 
-CV_FOLDS = 3
+CV_FOLDS = 5
 
 DEFAULTS = {
     "max_features": 5000,
@@ -81,7 +81,7 @@ def sweep(estimator, param_name, values, label=None, cv=CV_FOLDS):
         scoring=SCORING,
         refit="f1",
         cv=cv,
-        n_jobs=-1,
+        n_jobs=1,
     )
     grid.fit(X_train_text, y_train)
     cv_results = grid.cv_results_
@@ -143,44 +143,44 @@ print(f"\n--- max_features sweep (nb_alpha={DEFAULTS['nb_alpha']}, svm_C={DEFAUL
 pipeline = Pipeline([
     ("tfidf", TfidfVectorizer(ngram_range=DEFAULTS["ngram_range"])),
     ("nb_scale", NBFeatureScaler(alpha=DEFAULTS["nb_alpha"])),
-    ("svm", LinearSVC(C=DEFAULTS["svm_C"])),
+    ("svm", LinearSVC(C=DEFAULTS["svm_C"], max_iter=10000)),
 ])
 df_max_features, best_max_features = sweep(pipeline, "tfidf__max_features", MAX_FEATURES_GRID, label="max_features")
-plot_sweep_numeric(df_max_features, "max_features", OUT_DIR / "01_max_features.png")
-df_max_features.to_csv(OUT_DIR / "01_max_features.csv", index=False)
+plot_sweep_numeric(df_max_features, "max_features", OUT_DIR / "max_features.png")
+df_max_features.to_csv(OUT_DIR / "max_features.csv", index=False)
 
 # Step 2: ngram_range (TF-IDF), using best_max_features from Step 1
 print(f"\n--- ngram_range sweep (max_features={best_max_features}) ---")
 pipeline = Pipeline([
     ("tfidf", TfidfVectorizer(max_features=best_max_features)),
     ("nb_scale", NBFeatureScaler(alpha=DEFAULTS["nb_alpha"])),
-    ("svm", LinearSVC(C=DEFAULTS["svm_C"])),
+    ("svm", LinearSVC(C=DEFAULTS["svm_C"], max_iter=10000)),
 ])
 df_ngram, best_ngram_range = sweep(pipeline, "tfidf__ngram_range", NGRAM_RANGE_GRID, label="ngram_range")
-plot_sweep_categorical(df_ngram, "ngram_range", OUT_DIR / "02_ngram_range.png")
-df_ngram.to_csv(OUT_DIR / "02_ngram_range.csv", index=False)
+plot_sweep_categorical(df_ngram, "ngram_range", OUT_DIR / "ngram_range.png")
+df_ngram.to_csv(OUT_DIR / "ngram_range.csv", index=False)
 
 # Step 3: NB log-count ratio's alpha (smoothing), TF-IDF fixed at best
 print(f"\n--- nb_alpha sweep (max_features={best_max_features}, ngram_range={best_ngram_range}) ---")
 pipeline = Pipeline([
     ("tfidf", TfidfVectorizer(max_features=best_max_features, ngram_range=best_ngram_range)),
     ("nb_scale", NBFeatureScaler()),
-    ("svm", LinearSVC(C=DEFAULTS["svm_C"])),
+    ("svm", LinearSVC(C=DEFAULTS["svm_C"], max_iter=10000)),
 ])
 df_alpha, best_alpha = sweep(pipeline, "nb_scale__alpha", NB_ALPHA_GRID, label="nb_alpha")
-plot_sweep_numeric(df_alpha, "nb_alpha", OUT_DIR / "03_nb_alpha.png")
-df_alpha.to_csv(OUT_DIR / "03_nb_alpha.csv", index=False)
+plot_sweep_numeric(df_alpha, "nb_alpha", OUT_DIR / "nb_alpha.png")
+df_alpha.to_csv(OUT_DIR / "nb_alpha.csv", index=False)
 
 # Step 4: LinearSVC's C (regularisation strength), using best_alpha
 print(f"\n--- svm_C sweep (max_features={best_max_features}, ngram_range={best_ngram_range}, nb_alpha={best_alpha}) ---")
 pipeline = Pipeline([
     ("tfidf", TfidfVectorizer(max_features=best_max_features, ngram_range=best_ngram_range)),
     ("nb_scale", NBFeatureScaler(alpha=best_alpha)),
-    ("svm", LinearSVC()),
+    ("svm", LinearSVC(max_iter=10000)),
 ])
 df_C, best_C = sweep(pipeline, "svm__C", SVM_C_GRID, label="svm_C")
-plot_sweep_numeric(df_C, "svm_C", OUT_DIR / "04_svm_C.png", logx=True)
-df_C.to_csv(OUT_DIR / "04_svm_C.csv", index=False)
+plot_sweep_numeric(df_C, "svm_C", OUT_DIR / "svm_C.png", logx=True)
+df_C.to_csv(OUT_DIR / "svm_C.csv", index=False)
 
 # Final tuned configuration summary
 final_config = {

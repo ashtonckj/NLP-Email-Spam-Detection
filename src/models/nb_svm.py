@@ -56,7 +56,7 @@ X_train_text = X_train["Message"].apply(lambda t: clean_text_heavy(t, ps, stop_w
 X_test_text = X_test["Message"].apply(lambda t: clean_text_heavy(t, ps, stop_words))
 
 # Fit tfidf on train only, reuse the same vocab on test
-vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
+vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 1))
 X_train_vec = vectorizer.fit_transform(X_train_text)
 X_test_vec = vectorizer.transform(X_test_text)
 
@@ -69,7 +69,7 @@ X_train_nb = sp.csr_matrix(X_train_vec.dot(r_sparse))
 X_test_nb = sp.csr_matrix(X_test_vec.dot(r_sparse))
 
 # --- Linear SVM trained on the NB-reweighted features ---
-svm = LinearSVC()
+svm = LinearSVC(C=1.0)
 svm.fit(X_train_nb, y_train)
 y_pred = svm.predict(X_test_nb)
 results = [evaluate_model("NB-SVM Hybrid", y_test, y_pred)]
