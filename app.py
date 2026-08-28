@@ -131,6 +131,7 @@ class SpamMe(tk.Tk):
 
         s.configure("Title.TLabel", background=BG, foreground=FG, font=("Segoe UI Semibold", 18))
         s.configure("Sub.TLabel", background=BG, foreground=MUTED, font=("Segoe UI", 10))
+        s.configure("Warning.TLabel", background=CARD, foreground="#f97979", font=("Segoe UI", 10))
         s.configure("Card.TLabel", background=CARD, foreground=MUTED, font=("Segoe UI Semibold", 9))
         s.configure("KeywordValue.TLabel", background=CARD, foreground=FG, font=("Segoe UI", 10), wraplength=760)
 
@@ -138,6 +139,7 @@ class SpamMe(tk.Tk):
         s.configure("TCombobox", fieldbackground="#1a1e24", background="#1a1e24", foreground=FG, arrowcolor=MUTED, padding=5)
         s.map("TCombobox", fieldbackground=[("readonly", "#1a1e24")], foreground=[("readonly", FG)])
 
+        s.configure("Randomise.TButton", background="#928606", foreground=FG, borderwidth=0, padding=(14, 7))
         s.configure("Ghost.TButton", background="#343b47", foreground=FG, borderwidth=0, padding=(14, 7))
         s.map("Ghost.TButton", background=[("active", "#3f4757")])
 
@@ -160,8 +162,9 @@ class SpamMe(tk.Tk):
         # Input Area
         input_frame = ttk.Frame(self.tab_testing, style="Card.TFrame", padding=(16, 12))
         input_frame.pack(fill="both", expand=True, padx=20, pady=10)
-
+        
         ttk.Label(input_frame, text="EMAIL CONTENT", style="Card.TLabel").pack(anchor="w", pady=(0, 5))
+        ttk.Label(input_frame, text="⚠ Messages less than 20 words may cause inaccurate results!", style="Warning.TLabel").place(relx=1.0, y=0, anchor="ne")
 
         self.test_input = tk.Text(
             input_frame,
@@ -181,7 +184,7 @@ class SpamMe(tk.Tk):
         self.test_input.pack(fill="both", expand=True, pady=(0, 10))
         self.test_input.bind("<Control-a>", self._select_all_text)
         self.test_input.bind("<Control-A>", self._select_all_text)
-        # Tk's Text widget uses Emacs-style bindings by default on every platform --
+        # Tk's Text widget uses Emacs-style bindings by default on every platorm --
         # that's *why* Ctrl-A needed to be overridden above (it's normally bound to
         # "move to line start"). Word-wise deletion, however, isn't bound to anything
         # by default, so Ctrl+Backspace / Ctrl+Delete need to be added explicitly too.
@@ -197,7 +200,7 @@ class SpamMe(tk.Tk):
         btn_row.pack(fill="x")
 
         self.randomize_btn = ttk.Button(
-            btn_row, text="🎲 Randomize Email", style="Ghost.TButton", command=self._randomize_email
+            btn_row, text="🎲 Randomize Email", style="Randomise.TButton", command=self._randomize_email
         )
         self.randomize_btn.pack(side="left")
 
