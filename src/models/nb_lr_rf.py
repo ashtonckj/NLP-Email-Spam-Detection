@@ -30,29 +30,29 @@ X_train, X_test, y_train, y_test = load_split(SPAM_CSV)
 X_train_text = X_train["Message"].apply(lambda t: clean_text_heavy(t, ps, stop_words))
 X_test_text = X_test["Message"].apply(lambda t: clean_text_heavy(t, ps, stop_words))
 
-vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
+vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 1))
 X_train_vec = vectorizer.fit_transform(X_train_text)
 X_test_vec = vectorizer.transform(X_test_text)
 
 results = []
 
 # --- Naive Bayes ---
-nb = MultinomialNB()
+nb = MultinomialNB(alpha=0.1)
 nb.fit(X_train_vec, y_train)
 results.append(evaluate_model("Naive Bayes", y_test, nb.predict(X_test_vec)))
 
 # --- Logistic Regression ---
-lr = LogisticRegression(max_iter=1000)
+lr = LogisticRegression(C=10.0, max_iter=1000)
 lr.fit(X_train_vec, y_train)
 results.append(evaluate_model("Logistic Regression", y_test, lr.predict(X_test_vec)))
 
 # --- Random Forest ---
-rf = RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1)
+rf = RandomForestClassifier(n_estimators=200, max_depth=30, random_state=42, n_jobs=-1)
 rf.fit(X_train_vec, y_train)
 results.append(evaluate_model("Random Forest", y_test, rf.predict(X_test_vec)))
 
 # --- Hybrid: NB + LR + RF soft-voting ensemble ---
-hybrid = VotingClassifier(estimators=[("nb", nb), ("lr", lr), ("rf", rf)], voting="soft")
+hybrid = VotingClassifier(estimators=[("nb", nb), ("lr", lr), ("rf", rf)], voting="soft", weights=(1, 2, 1))
 hybrid.fit(X_train_vec, y_train)
 y_pred = hybrid.predict(X_test_vec)
 results.append(evaluate_model("NB + LR + RF Hybrid", y_test, y_pred))
