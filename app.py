@@ -99,7 +99,7 @@ class SpamMe(tk.Tk):
         self._stemmer = None
 
         # Lazily-loaded pool of real test-set emails (see _get_test_samples),
-        # used by the "Randomize Email" button. Loaded on first click so the
+        # used by the "Randomise Email" button. Loaded on first click so the
         # app still opens instantly.
         self._test_samples = None
         self._raw_split = None
@@ -139,7 +139,8 @@ class SpamMe(tk.Tk):
         s.configure("TCombobox", fieldbackground="#1a1e24", background="#1a1e24", foreground=FG, arrowcolor=MUTED, padding=5)
         s.map("TCombobox", fieldbackground=[("readonly", "#1a1e24")], foreground=[("readonly", FG)])
 
-        s.configure("Randomise.TButton", background="#928606", foreground=FG, borderwidth=0, padding=(14, 7))
+        s.configure("Randomise.TButton", background="#9C8F07", foreground=FG, borderwidth=0, padding=(14, 7))
+        s.map("Randomise.TButton", background=[("active", "#83710A")])
         s.configure("Ghost.TButton", background="#343b47", foreground=FG, borderwidth=0, padding=(14, 7))
         s.map("Ghost.TButton", background=[("active", "#3f4757")])
 
@@ -199,10 +200,10 @@ class SpamMe(tk.Tk):
         btn_row = ttk.Frame(input_frame, style="Card.TFrame")
         btn_row.pack(fill="x")
 
-        self.randomize_btn = ttk.Button(
-            btn_row, text="🎲 Randomize Email", style="Randomise.TButton", command=self._randomize_email
+        self.randomise_btn = ttk.Button(
+            btn_row, text="🎲 Randomise Email", style="Randomise.TButton", command=self._randomise_email
         )
-        self.randomize_btn.pack(side="left")
+        self.randomise_btn.pack(side="left")
 
         self.test_btn = ttk.Button(btn_row, text="Analyze Email", style="Accent.TButton", command=self._run_test)
         self.test_btn.pack(side="right")
@@ -282,7 +283,7 @@ class SpamMe(tk.Tk):
 
         # Take a fixed-size, evenly mixed sample so both spam and ham show up,
         # with a fixed seed so the *pool* is reproducible (the actual pick in
-        # _randomize_email below is still random each click).
+        # _randomise_email below is still random each click).
         spam_pool = test_df.loc[test_df["Category"] == 1, "Message"]
         ham_pool = test_df.loc[test_df["Category"] == 0, "Message"]
 
@@ -375,7 +376,7 @@ class SpamMe(tk.Tk):
             return None
         return stemmer.stem(w)
 
-    def _randomize_email(self):
+    def _randomise_email(self):
         samples = self._get_test_samples()
         if not samples:
             missing_list = "\n".join(f"  - {f}" for f in RAW_DATA_FILES)
