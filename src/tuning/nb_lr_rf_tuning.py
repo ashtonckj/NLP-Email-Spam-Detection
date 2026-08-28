@@ -16,8 +16,6 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
-from src.figures.figures_data_analysis import fig_confusion_matrix
-from src.models.evaluation import evaluate_model, export_model_metrics
 from src.preprocessing.preprocessing import clean_text_heavy, load_split
 
 SPAM_CSV = ROOT_DIR / "data" / "processed" / "spam.csv"
@@ -121,24 +119,24 @@ def plot_sweep_categorical(df, label, out_path):
 
 
 # Step 1: max_features (shared TF-IDF) 
-print(f"\n--- max_features sweep (probe=LogisticRegression, ngram_range={DEFAULTS['ngram_range']}) ---")
+print(f"\n--- max_features sweep (LogisticRegression, ngram_range={DEFAULTS['ngram_range']}) ---")
 probe = Pipeline([
     ("tfidf", TfidfVectorizer(ngram_range=DEFAULTS["ngram_range"])),
     ("clf", LogisticRegression(max_iter=1000)),
 ])
 df_max_features, best_max_features = sweep(probe, "tfidf__max_features", MAX_FEATURES_GRID, label="max_features")
-plot_sweep_numeric(df_max_features, "max_features", OUT_DIR / "01_max_features.png")
-df_max_features.to_csv(OUT_DIR / "01_max_features.csv", index=False)
+plot_sweep_numeric(df_max_features, "max_features", OUT_DIR / "max_features.png")
+df_max_features.to_csv(OUT_DIR / "max_features.csv", index=False)
 
 # Step 2: ngram_range (shared TF-IDF), using best_max_features from Step 1
-print(f"\n--- ngram_range sweep (probe=LogisticRegression, max_features={best_max_features}) ---")
+print(f"\n--- ngram_range sweep (LogisticRegression, max_features={best_max_features}) ---")
 probe = Pipeline([
     ("tfidf", TfidfVectorizer(max_features=best_max_features)),
     ("clf", LogisticRegression(max_iter=1000)),
 ])
 df_ngram, best_ngram_range = sweep(probe, "tfidf__ngram_range", NGRAM_RANGE_GRID, label="ngram_range")
-plot_sweep_categorical(df_ngram, "ngram_range", OUT_DIR / "02_ngram_range.png")
-df_ngram.to_csv(OUT_DIR / "02_ngram_range.csv", index=False)
+plot_sweep_categorical(df_ngram, "ngram_range", OUT_DIR / "ngram_range.png")
+df_ngram.to_csv(OUT_DIR / "ngram_range.csv", index=False)
 
 # Step 3: MultinomialNB's alpha (Laplace smoothing), TF-IDF fixed at best
 print(f"\n--- nb_alpha sweep (max_features={best_max_features}, ngram_range={best_ngram_range}) ---")
@@ -147,8 +145,8 @@ pipeline_nb = Pipeline([
     ("clf", MultinomialNB()),
 ])
 df_alpha, best_alpha = sweep(pipeline_nb, "clf__alpha", NB_ALPHA_GRID, label="nb_alpha")
-plot_sweep_numeric(df_alpha, "nb_alpha", OUT_DIR / "03_nb_alpha.png")
-df_alpha.to_csv(OUT_DIR / "03_nb_alpha.csv", index=False)
+plot_sweep_numeric(df_alpha, "nb_alpha", OUT_DIR / "nb_alpha.png")
+df_alpha.to_csv(OUT_DIR / "nb_alpha.csv", index=False)
 
 # Step 4: LogisticRegression's C (inverse regularisation strength)
 print(f"\n--- lr_C sweep (max_features={best_max_features}, ngram_range={best_ngram_range}) ---")
@@ -157,8 +155,8 @@ pipeline_lr = Pipeline([
     ("clf", LogisticRegression(max_iter=1000)),
 ])
 df_C, best_C = sweep(pipeline_lr, "clf__C", LR_C_GRID, label="lr_C", )
-plot_sweep_numeric(df_C, "lr_C", OUT_DIR / "04_lr_C.png", logx=True)
-df_C.to_csv(OUT_DIR / "04_lr_C.csv", index=False)
+plot_sweep_numeric(df_C, "lr_C", OUT_DIR / "lr_C.png", logx=True)
+df_C.to_csv(OUT_DIR / "lr_C.csv", index=False)
 
 # Step 5: RandomForestClassifier's n_estimators
 print(f"\n--- rf_n_estimators sweep (max_features={best_max_features}, ngram_range={best_ngram_range}) ---")
@@ -167,8 +165,8 @@ pipeline_rf = Pipeline([
     ("clf", RandomForestClassifier(random_state=42, n_jobs=1)),
 ])
 df_n_estimators, best_n_estimators = sweep(pipeline_rf, "clf__n_estimators", RF_N_ESTIMATORS_GRID, label="rf_n_estimators")
-plot_sweep_numeric(df_n_estimators, "rf_n_estimators", OUT_DIR / "05_rf_n_estimators.png")
-df_n_estimators.to_csv(OUT_DIR / "05_rf_n_estimators.csv", index=False)
+plot_sweep_numeric(df_n_estimators, "rf_n_estimators", OUT_DIR / "rf_n_estimators.png")
+df_n_estimators.to_csv(OUT_DIR / "rf_n_estimators.csv", index=False)
 
 # Step 6: RandomForestClassifier's max_depth, using best_n_estimators
 print(f"\n--- rf_max_depth sweep (rf_n_estimators={best_n_estimators}) ---")
@@ -177,12 +175,12 @@ pipeline_rf = Pipeline([
     ("clf", RandomForestClassifier(n_estimators=best_n_estimators, random_state=42, n_jobs=1)),
 ])
 df_max_depth, best_max_depth = sweep(pipeline_rf, "clf__max_depth", RF_MAX_DEPTH_GRID, label="rf_max_depth")
-plot_sweep_numeric(df_max_depth, "rf_max_depth", OUT_DIR / "06_rf_max_depth.png")
-df_max_depth.to_csv(OUT_DIR / "06_rf_max_depth.csv", index=False)
+plot_sweep_numeric(df_max_depth, "rf_max_depth", OUT_DIR / "rf_max_depth.png")
+df_max_depth.to_csv(OUT_DIR / "rf_max_depth.csv", index=False)
 
 # Step 7: Soft-voting weights -- tuned as a normal VotingClassifier
 # Weight order: (Naive Bayes, Logistic Regression, Random Forest).
-print(f"\n--- voting_weights sweep ---")
+print("\n--- voting_weights sweep ---")
 pipeline_vote = Pipeline([
     ("tfidf", TfidfVectorizer(max_features=best_max_features, ngram_range=best_ngram_range)),
     ("voting", VotingClassifier(
@@ -195,8 +193,8 @@ pipeline_vote = Pipeline([
     )),
 ])
 df_weights, best_weights = sweep(pipeline_vote, "voting__weights", VOTING_WEIGHTS_GRID, label="voting_weights")
-plot_sweep_categorical(df_weights, "voting_weights", OUT_DIR / "07_voting_weights.png")
-df_weights.to_csv(OUT_DIR / "07_voting_weights.csv", index=False)
+plot_sweep_categorical(df_weights, "voting_weights", OUT_DIR / "voting_weights.png")
+df_weights.to_csv(OUT_DIR / "voting_weights.csv", index=False)
 
 # Final tuned configuration summary
 final_config = {
