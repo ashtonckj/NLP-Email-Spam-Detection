@@ -56,13 +56,16 @@ def run_cleaning_pipeline(df: pd.DataFrame) -> pd.DataFrame:
     for col in FEATURES:
         df[col] = df[col].apply(clean_text_light)
     df = combine_text(df)
+    df["Message"] = df["Message"].replace(r"^\s*$", pd.NA, regex=True)
+    df = df.dropna(subset=["Message"])
     validate_labels(df)
-    return df[["subject", "body", "Message", "Category"]]
+    print(df.info())
+    return df[["Message", "Category"]]
 
 
 def load_split(csv_path):
     df = pd.read_csv(csv_path)
-    df[["subject", "body", "Message"]] = df[["subject", "body", "Message"]].fillna("")
-    X = df[["subject", "body", "Message"]]
+    df[["Message"]] = df[["Message"]].fillna("")
+    X = df[["Message"]]
     y = df["Category"]
     return train_test_split(X, y, test_size=0.2, random_state=42, shuffle=True, stratify=y)
