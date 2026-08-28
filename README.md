@@ -56,21 +56,25 @@ project-root/
 │   ├── preprocessing/
 │   │   └── preprocessing.py        # clean_text_light / clean_text_heavy / load_split
 │   ├── figures/
-│   │   └── figures_data_analysis.py     # figures used in documentation
-│   │   └── figures_datasets_info.ipynb  # processed/raw datasets .info()
+│   │   ├── figures_data_analysis.py     # figures used in documentation
+│   │   ├── figures_datasets_info.ipynb  # processed/raw datasets .info()
 │   │   └── figures_wordcloud.py         # wordcloud generator
 │   ├── models/
 │   │   ├── evaluation.py           # evaluate_model() + export_model_metrics()
 │   │   ├── lstm_cnn.py             # LSTM + CNN hybrid
 │   │   ├── nb_lr_rf.py             # NB + LR + RF soft-voting ensemble
 │   │   └── nb_svm.py               # NB log-count-ratio reweighted linear SVM
-│   └── saved_models/               # holds trained models + tokenizers + metrics
-│       ├── lstm_cnn_model.keras
-│       ├── lstm_cnn_tokenizer.pkl
-│       ├── lstm_cnn_metrics.json
-│       ├── nb_lr_rf_model.joblib
-│       ├── nb_lr_rf_metrics.json
-│       ├── nb_svm_model.joblib
-│       └── nb_svm_metrics.json
+│   ├── saved_models/               # holds trained models + tokenizers + metrics
+│   │   ├── lstm_cnn_model.keras
+│   │   ├── lstm_cnn_tokenizer.pkl
+│   │   ├── lstm_cnn_metrics.json
+│   │   ├── nb_lr_rf_model.joblib
+│   │   ├── nb_lr_rf_metrics.json
+│   │   ├── nb_svm_model.joblib
+│   │   └── nb_svm_metrics.json
+│   └── tuning/                     # holds parameter tuning for each model
+│       ├── lstm_cnn_tuning.py
+│       ├── nb_lr_rf_tuning.py
+│       └── nb_svm_tuning.py
 └── README.md
 ```
