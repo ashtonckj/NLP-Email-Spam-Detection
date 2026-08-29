@@ -26,6 +26,7 @@ def build_datasets():
 
     combined = pd.concat(frames, ignore_index=True)
     print(f"Combined raw rows: {len(combined)}")
+    combined.to_csv(RAW_DIR / "spam_unprocessed.csv", index=False)
 
     spam_df = run_cleaning_pipeline(combined)
     spam_df.to_csv(OUT_DIR / "spam.csv", index=False)
