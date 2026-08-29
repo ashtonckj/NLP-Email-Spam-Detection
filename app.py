@@ -34,13 +34,6 @@ SAVED_MODELS_DIR = ROOT_DIR / "src" / "saved_models"
 RAW_DATA_DIR = ROOT_DIR / "data" / "raw"
 RAW_DATA_FILES = ["CEAS_08.csv", "Enron.csv", "Nazario.csv"]
 
-# Hardcoded registry of trained models -- add/remove an entry here whenever a
-# model is added, renamed, or retired. "kind" controls which _predict_* method
-# is used to score a given model type:
-#   - "keras"          -> lstm_cnn.py:  .keras model + its own tokenizer.pkl
-#   - "sklearn_proba"  -> nb_lr_rf.py:  joblib bundle, classifier exposes predict_proba
-#   - "nb_svm"         -> nb_svm.py:    joblib bundle, LinearSVC (no predict_proba),
-#                          needs the NB log-count-ratio reweighting before scoring
 MODEL_REGISTRY = [
     {
         "name": "LSTM + CNN Hybrid",
@@ -92,21 +85,16 @@ class SpamMe(tk.Tk):
         self.training_result = None
         self.trained_model = None  # Placeholder for loaded model in testing
 
-        # Lazily-loaded NLTK assets (stopwords / stemmer), shared by every
-        # TF-IDF based model (nb_lr_rf, nb_svm). Loaded on first Analyze click
-        # so the app still opens instantly even without the nltk data cached.
+        # Lazily-loaded NLTK assets (stopwords / stemmer), shared by every TF-IDF based model (nb_lr_rf, nb_svm). 
         self._stop_words = None
         self._stemmer = None
 
         # Lazily-loaded pool of real test-set emails (see _get_test_samples),
-        # used by the "Randomise Email" button. Loaded on first click so the
-        # app still opens instantly.
+        # used by the "Randomise Email" button
         self._test_samples = None
         self._raw_split = None
 
-        # Lazily-loaded list of linear models (NB-SVM, NB, LR), reused purely
-        # to score per-word spam contribution for whatever email is currently
-        # in the box (see _get_highlight_bundle / _get_word_contributions)
+        # Lazily-loaded list of linear models (NB-SVM, NB, LR)
         self._highlight_bundle = None
 
         self._setup_style()
@@ -185,10 +173,6 @@ class SpamMe(tk.Tk):
         self.test_input.pack(fill="both", expand=True, pady=(0, 10))
         self.test_input.bind("<Control-a>", self._select_all_text)
         self.test_input.bind("<Control-A>", self._select_all_text)
-        # Tk's Text widget uses Emacs-style bindings by default on every platorm --
-        # that's *why* Ctrl-A needed to be overridden above (it's normally bound to
-        # "move to line start"). Word-wise deletion, however, isn't bound to anything
-        # by default, so Ctrl+Backspace / Ctrl+Delete need to be added explicitly too.
         self.test_input.bind("<Control-BackSpace>", self._delete_word_before)
         self.test_input.bind("<Control-Delete>", self._delete_word_after)
 
@@ -214,7 +198,7 @@ class SpamMe(tk.Tk):
         ttk.Label(self.result_frame, text="MODEL PREDICTIONS", style="Card.TLabel").pack(anchor="w", pady=(0, 10))
 
         # Table for results — height bumped to 6 so all current model types
-        # (LSTM+CNN, NB+LR+RF hybrid, NB+SVM hybrid, ...) fit without scrolling
+        # (LSTM+CNN, NB+LR+RF hybrid, NB+SVM hybrid) fit without scrolling
         self.result_tree = ttk.Treeview(self.result_frame, columns=("Model", "Accuracy", "Confidence", "Prediction"), show="headings", height=6)
         self.result_tree.pack(fill="x")
 
@@ -294,17 +278,6 @@ class SpamMe(tk.Tk):
         return self._test_samples
 
     def _get_highlight_bundle(self):
-        """Lazily load every linear model we have, purely to score per-word
-        spam contribution for whatever email is in the box. Nothing new is
-        exported to disk -- these are the same joblib bundles already used
-        for real predictions elsewhere in the app:
-
-          - NB-SVM's LinearSVC, over (TF-IDF x NB log-count-ratio) features
-          - the NB+LR+RF bundle's NB and LR sub-models, pulled straight out
-            of the saved VotingClassifier's own fitted clones (no retraining)
-
-        Random Forest is skipped -- it has no per-word linear weight to read.
-        """
         if self._highlight_bundle is not None:
             return self._highlight_bundle
 
@@ -330,13 +303,6 @@ class SpamMe(tk.Tk):
         return self._highlight_bundle
 
     def _get_word_contributions(self, heavy_clean_text):
-        """Return {word: contribution} pooled across every available linear
-        model, for THIS email only. Each model's own term is exact math off
-        its real learned weights -- summing them just means a word that
-        several models independently lean on adds up, so a spam email with
-        multiple recognizable signals highlights more of them, while a
-        message none of the models find spammy nets out near/below zero.
-        """
         sources = self._get_highlight_bundle()
         if not sources:
             return None
@@ -366,11 +332,6 @@ class SpamMe(tk.Tk):
 
     @staticmethod
     def _word_to_feature(word, stemmer, stop_words):
-        """Map a raw word from the textbox to the stemmed form the TF-IDF
-        vocabulary uses -- the same rule clean_text_heavy applies (drop
-        words length <=2, drop stopwords, then stem), just one word at a time
-        so a highlighted span in the textbox can be traced back to a feature.
-        """
         w = word.lower()
         if len(w) <= 2 or w in stop_words:
             return None
@@ -601,10 +562,6 @@ class SpamMe(tk.Tk):
         with open(metrics_path, "r") as f:
             metrics_data = json.load(f)
 
-        # Every metrics file now has the same shape (see evaluation.export_model_metrics):
-        # {"Some Model Name": {"accuracy": ..., "precision": ..., ...}, ...}
-        # Pull whichever entry is the final hybrid/ensemble result rather than
-        # an intermediate sub-model (e.g. skip "Naive Bayes" inside nb_lr_rf_metrics.json).
         hybrid_entry = next((v for k, v in metrics_data.items() if "hybrid" in k.lower()), None)
         acc = hybrid_entry.get("accuracy", "N/A") if hybrid_entry else "N/A"
 
