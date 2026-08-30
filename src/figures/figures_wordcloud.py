@@ -72,7 +72,7 @@ def generate_and_save_wordclouds(df, text_col, output_dir, variant_label):
     return saved_paths
 
 
-def main():
+def fig_wordclouds():
     df = pd.read_csv(SPAM_CSV)
     df[["subject", "body", "Message"]] = df[["subject", "body", "Message"]].fillna("")
 
@@ -103,4 +103,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    fig_wordclouds()
