@@ -43,7 +43,7 @@ MODEL_REGISTRY = [
         "metrics_file": "lstm_cnn_metrics.json",
     },
     {
-        "name": "NB + LR + RF Hybrid",
+        "name": "NB + LR + RF Ensemble",
         "kind": "sklearn_proba",
         "model_file": "nb_lr_rf_model.joblib",
         "metrics_file": "nb_lr_rf_metrics.json",
