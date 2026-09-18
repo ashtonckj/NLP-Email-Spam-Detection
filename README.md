@@ -1,6 +1,6 @@
 # 📧 Spam Email Detection
 
-A machine learning project that classifies email messages as spam or ham. It trains and compares three hybrid models — an LSTM + CNN neural network, a soft-voting ensemble of Naive Bayes / Logistic Regression / Random Forest, and an NB-reweighted linear SVM — and lets you test them side by side through a desktop GUI.
+A machine learning project that classifies [**email messages**](https://www.kaggle.com/datasets/naserabdullahalam/phishing-email-dataset) as spam or ham. It trains and compares three hybrid models — an LSTM + CNN neural network, a soft-voting ensemble of Naive Bayes / Logistic Regression / Random Forest, and an NB-reweighted linear SVM — and lets you test them side by side through a desktop GUI.
 
 ## Requirements
 
